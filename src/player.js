@@ -144,7 +144,8 @@ export class Player {
     // Shooting
     this.fireCd -= dt;
     const wp = this.weapon;
-    if (wp.charge) {
+    if (this.noShoot) { /* Bar Fight: parry only */ }
+    else if (wp.charge) {
       if (inp.held.shoot) {
         this.charge += dt;
         if (this.charge >= 0.75 && this.charge - dt < 0.75) { play('charge_up'); w.spark(this.mx, this.my, '#c8ff80', 1); }
@@ -161,7 +162,7 @@ export class Player {
     }
 
     // EX / Super
-    if (inp.pressed.ex) {
+    if (inp.pressed.ex && !this.noShoot) {
       if (this.meter >= METER_MAX) this.doSuper(w);
       else if (this.meter >= 100) this.doEx(w);
     }

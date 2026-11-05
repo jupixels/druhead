@@ -25,7 +25,7 @@ export class ResultsScene {
     if (this.firstClear && (this.def.type === 'boss' || this.def.type === 'plane' || this.def.type === 'parry')) { this.bonus = 2; s.coins += 2; }
     for (const c of res.coinIds || []) if (!s.coinsFound[c]) { s.coinsFound[c] = true; s.coins++; }
     if (this.def.onWin) this.def.onWin(s, diff);
-    if (Object.keys(s.iou).length >= 6) s.bwUnlocked = true;
+    if (s.iou.tab) s.bwUnlocked = true;
     writeSave();
     this.stamped = false;
   }
@@ -33,7 +33,7 @@ export class ResultsScene {
   update(dt) {
     this.t += dt;
     if (this.t > 3.2 && !this.stamped) { this.stamped = true; play('stamp'); G.shake = 10; }
-    if (this.t > 3.6 && menu.confirm && !iris.busy()) { play('menu_select'); iris.close(() => (this.def.after ? this.def.after() : nav.map())); }
+    if (this.t > 3.6 && menu.confirm && !iris.busy()) { play('menu_select'); iris.close(() => (this.def.after ? this.def.after(this.diff) : nav.map())); }
   }
   draw(ctx) {
     ctx.fillStyle = '#3b2412'; ctx.fillRect(0, 0, W, H);

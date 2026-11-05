@@ -141,7 +141,7 @@ export class World {
     this.stateT += dt;
     this.flash = Math.max(0, this.flash - dt);
     if (this.state === 'intro') {
-      for (const p of this.players) { p.vx = 0; p.vy += 2700 * dt; p.move(dt, this); p.computeMuzzle && p.computeMuzzle(); }
+      for (const p of this.players) { if (p.isPlane) { p.prop += dt * 40; continue; } p.vx = 0; p.vy += 2700 * dt; p.move(dt, this); p.computeMuzzle && p.computeMuzzle(); }
       if (this.boss) this.boss.introUpdate ? this.boss.introUpdate(dt, this) : null;
       if (this.stateT > 2.2) { this.state = 'play'; this.stateT = 0; }
       if (this.stateT > 0.5 && this.stateT - dt <= 0.5) play('announcer_start');
@@ -153,7 +153,7 @@ export class World {
       dt *= this.stateT < 1.6 ? 0.3 : 1;
       if (this.boss) this.boss.deathUpdate ? this.boss.deathUpdate(dt, this) : null;
       this.updateFx(dt);
-      for (const p of this.players) if (!p.dead) { p.vx = 0; p.vy += 2700 * dt; p.move(dt, this); }
+      for (const p of this.players) if (!p.dead && !p.isPlane) { p.vx = 0; p.vy += 2700 * dt; p.move(dt, this); }
       return;
     }
     this.stats.time += dt;

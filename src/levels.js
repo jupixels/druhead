@@ -1,10 +1,23 @@
 // Registry of every playable level.
 import { hopsLevel } from './bosses/hops.js';
 import { merlotLevel } from './bosses/merlot.js';
+import { agaveLevel } from './bosses/agave.js';
+import { rumLevel } from './bosses/rum.js';
+import { mixLevel } from './bosses/mix.js';
+import { tabLevel } from './bosses/tab.js';
+import { pubcrawlLevel, vineyardLevel } from './runlevels.js';
+import { barfightLevel } from './barfight.js';
 
 export const LEVELS = {
   hops: hopsLevel,
   merlot: merlotLevel,
+  agave: agaveLevel,
+  rum: rumLevel,
+  mix: mixLevel,
+  tab: tabLevel,
+  pubcrawl: pubcrawlLevel,
+  vineyard: vineyardLevel,
+  barfight: barfightLevel,
 };
 
 // Cuphead-style grading.
