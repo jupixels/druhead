@@ -19,7 +19,7 @@ export function newSave() {
     coinsFound: {},   // "levelId:i" -> true
     npcCoins: {},
     storySeen: false,
-    map: { x: 180, y: 560 },
+    map: { x: 440, y: 1000 },
     world: 1,
     playTime: 0,
     bwUnlocked: false,

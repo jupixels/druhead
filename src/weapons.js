@@ -305,9 +305,9 @@ export const SUPERS = {
 };
 export const TRINKETS = {
   none: { name: 'No Trinket', desc: 'Nothing equipped.', price: 0 },
-  opener: { name: 'Bottle Opener', desc: '+1 health. Weapons deal 5% less damage.', price: 3 },
+  opener: { name: 'Bottle Opener', desc: '+1 health. Weapons deal 5% less damage.', price: 2 },
   coaster: { name: 'Coaster', desc: 'You cannot be hit while dashing.', price: 3 },
   icebucket: { name: 'Ice Bucket', desc: 'Your super meter slowly fills by itself.', price: 3 },
-  penny: { name: 'Lucky Penny', desc: 'The first hit you take each fight does no damage.', price: 3 },
-  driver: { name: 'Designated Driver', desc: '+2 health, but weapons deal 15% less damage.', price: 5 },
+  penny: { name: 'Lucky Penny', desc: 'The first hit you take each fight does no damage.', price: 2 },
+  driver: { name: 'Designated Driver', desc: '+2 health, but weapons deal 15% less damage.', price: 4 },
 };

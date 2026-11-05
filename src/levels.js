@@ -1,8 +1,10 @@
 // Registry of every playable level.
 import { hopsLevel } from './bosses/hops.js';
+import { merlotLevel } from './bosses/merlot.js';
 
 export const LEVELS = {
   hops: hopsLevel,
+  merlot: merlotLevel,
 };
 
 // Cuphead-style grading.

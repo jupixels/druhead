@@ -21,6 +21,8 @@ export class ResultsScene {
     if (this.def.type === 'boss' || this.def.type === 'plane') {
       if (diff >= 1 && !s.iou[id]) { s.iou[id] = true; this.newIou = true; }
     }
+    this.bonus = 0;
+    if (this.firstClear && (this.def.type === 'boss' || this.def.type === 'plane' || this.def.type === 'parry')) { this.bonus = 2; s.coins += 2; }
     for (const c of res.coinIds || []) if (!s.coinsFound[c]) { s.coinsFound[c] = true; s.coins++; }
     if (this.def.onWin) this.def.onWin(s, diff);
     if (Object.keys(s.iou).length >= 6) s.bwUnlocked = true;
@@ -69,6 +71,7 @@ export class ResultsScene {
       if (this.newIou) msg = 'You collected an IOU for Big Tab!';
       else if ((this.def.type === 'boss' || this.def.type === 'plane') && this.diff === 0 && !G.save.iou[this.id]) msg = 'Beat it on Regular or Top Shelf to collect the IOU.';
       if (r.coinIds && r.coinIds.length) msg = `Coins found: ${r.coinIds.length}` + (msg ? '  ·  ' + msg : '');
+      if (this.bonus) msg = `+${this.bonus} coins for a first win!` + (msg ? '  ·  ' + msg : '');
       if (msg) text(ctx, msg, W / 2, 560, 22, '#2f5e2c', 'center', FONT_UI, 0);
       if (Math.floor(G.time * 2) % 2) text(ctx, 'Press JUMP to continue', W / 2, 610, 22, INK, 'center', FONT_UI, 0);
     }
