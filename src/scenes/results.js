@@ -69,7 +69,7 @@ export class ResultsScene {
     // Victory dancer
     if (!this.hero) { this.hero = new Player(0, 960, 640, G.save.loadout[0]); this.hero.onGround = true; this.hero.facing = -1; }
     const h = this.hero; h.anim = this.t; h.victoryT = this.t; h.animate(1 / 60, null);
-    ctx.save(); ctx.translate(h.x, h.y); ctx.scale(1.3, 1.3); ctx.translate(-h.x, -h.y); h.draw(ctx); ctx.restore();
+    ctx.save(); ctx.translate(h.x, h.y); ctx.scale(1.55, 1.55); ctx.translate(-h.x, -h.y); h.draw(ctx); ctx.restore();
     if (this.t > 3.2) {
       const k = Math.min(1, (this.t - 3.2) * 6);
       ctx.save(); ctx.translate(960, 230); ctx.rotate(-0.22); ctx.scale(2.6 - k * 1.6, 2.6 - k * 1.6);

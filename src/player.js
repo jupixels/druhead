@@ -5,6 +5,7 @@ import { WEAPONS, Beam, Spirit } from './weapons.js';
 import { play } from './audio.js';
 import { rumble } from './world.js';
 
+const VIS = 0.84; // visual size of the character (hitbox is separate)
 const GRAV = 2700, JUMP_V = -1060, RUN = 345, DASH_V = 800, DASH_T = 0.25;
 export const METER_MAX = 500;
 
@@ -50,6 +51,11 @@ export class Player {
     this.runPh = 0; this.airT = 0; this.jumped = false;
     this.introT = -1; this.victoryT = -1; this.danceT = -1;
     this.blinkT = 2 + Math.random() * 2; this.blink = 0;
+    // Drunk mannerisms (visual only, never affects controls)
+    this.drunkT = Math.random() * 10;
+    this.hicT = 3 + Math.random() * 4; this.hic = 0;
+    this.teeter = 0; this.teeterV = 0;
+    this.stumble = 0;
   }
 
   // Visual springs, called every frame from update and from intro/KO.
@@ -63,6 +69,20 @@ export class Player {
     this.shootT = Math.max(0, this.shootT - dt);
     this.blinkT -= dt; if (this.blinkT <= 0) { this.blink = 0.12; this.blinkT = 2 + Math.random() * 3; }
     this.blink = Math.max(0, this.blink - dt);
+    this.drunkT += dt;
+    // Teeter spring: wobbles after landings and stumbles
+    this.teeterV += (-90 * this.teeter - 3.2 * this.teeterV) * dt; this.teeter += this.teeterV * dt;
+    // Hiccups
+    this.hic = Math.max(0, this.hic - dt);
+    this.hicT -= dt;
+    if (this.hicT <= 0 && !this.dead && this.introT < 0) {
+      this.hicT = 4 + Math.random() * 5; this.hic = 0.4;
+      this.sq = 1.18; this.sqV = 0; this.headV = -160; this.teeterV += (Math.random() - 0.5) * 3;
+      if (w && w.hiccup) w.hiccup(this);
+    }
+    // Occasional stumble while running
+    if (this.onGround && Math.abs(this.vx) > 10 && Math.random() < dt * 0.35) { this.stumble = 0.35; this.teeterV += this.facing * 2.2; }
+    this.stumble = Math.max(0, this.stumble - dt);
     if (this.onGround) { this.airT = 0; } else this.airT += dt;
     const running = this.onGround && Math.abs(this.vx) > 10 && !this.duck;
     if (running) {
@@ -202,8 +222,8 @@ export class Player {
   }
 
   computeMuzzle() {
-    const sx = this.x + this.facing * 8, sy = this.y - (this.duck ? 30 : 56);
-    this.mx = sx + this.aimX * 42; this.my = sy + this.aimY * 42;
+    const sx = this.x + this.facing * 8 * VIS, sy = this.y - (this.duck ? 30 : 56) * VIS;
+    this.mx = sx + this.aimX * 36; this.my = sy + this.aimY * 36;
   }
 
   doEx(w) {
@@ -265,6 +285,7 @@ export class Player {
     if (this.onGround && !wasGround) {
       this.airDash = false; this.parryUsed = false; this.landT = 0.12;
       this.sq = 0.68; this.sqV = 0; this.headV = 300; this.jumped = false;
+      this.teeterV += (Math.random() < 0.5 ? -1 : 1) * 2.4;
       if (this.vy >= 0) play('land', { vary: 0.1, volume: 0.6 });
       w.puff(this.x, this.y - 4, 16, '#efe3c0');
     }
@@ -358,7 +379,7 @@ export class Player {
       ctx.save(); ctx.globalAlpha = 0.4 + Math.sin(G.time * 20) * 0.15;
       ctx.fillStyle = '#ffd84a'; ctx.beginPath(); ctx.ellipse(0, -62, 58, 84, 0, 0, 7); ctx.fill(); ctx.restore();
     }
-    ctx.scale(this.facing * 1.1, 1.1);
+    ctx.scale(this.facing * VIS, VIS);
     if (pose === 'dash') {
       for (let i = 3; i >= 1; i--) {
         ctx.save(); ctx.globalAlpha = 0.16 * (4 - i); ctx.translate(-i * 26, 0);
@@ -372,13 +393,13 @@ export class Player {
     if (pose === 'ball') {
       ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
       const a = this.airT * 17 * this.facing;
-      for (const o of [0, Math.PI]) { ctx.beginPath(); ctx.arc(this.x, this.y - 48, 46, a + o, a + o + 0.9); ctx.stroke(); }
+      for (const o of [0, Math.PI]) { ctx.beginPath(); ctx.arc(this.x, this.y - 48 * VIS, 46 * VIS, a + o, a + o + 0.9); ctx.stroke(); }
       ctx.restore();
     }
     if (this.parryFlash > 0) {
       const k = this.parryFlash / 0.25;
       ctx.save(); ctx.globalAlpha = k; ctx.strokeStyle = PINK; ctx.lineWidth = 6 * k;
-      ctx.beginPath(); ctx.arc(this.x, this.y - 50, 70 * (1.4 - k), 0, 7); ctx.stroke(); ctx.restore();
+      ctx.beginPath(); ctx.arc(this.x, this.y - 50 * VIS, 70 * VIS * (1.4 - k), 0, 7); ctx.stroke(); ctx.restore();
     }
   }
 
@@ -393,9 +414,9 @@ export class Player {
     let backHand = null, frontHand = null, armsUp = false;
     const shake = pose === 'super' ? Math.sin(G.time * 70) * 2 : 0;
     switch (pose) {
-      case 'idle': bob = Math.sin(t * 3.4) * 1.6; break;
+      case 'idle': bob = Math.sin(t * 3.4) * 1.6; f1x = -10 + Math.sin(this.drunkT * 1.6) * 3; f2x = 10 + Math.sin(this.drunkT * 1.6) * 3; break;
       case 'run':
-        lean = 0.15; bob = -Math.abs(Math.sin(ph)) * 7;
+        lean = 0.15 + Math.sin(ph * 0.5) * 0.05; bob = -Math.abs(Math.sin(ph)) * (5 + Math.abs(Math.sin(ph * 0.5)) * 5);
         f1x = Math.sin(ph) * 19; f1y = -Math.max(0, Math.cos(ph)) * 13;
         f2x = -Math.sin(ph) * 19; f2y = -Math.max(0, -Math.cos(ph)) * 13;
         break;
@@ -431,6 +452,13 @@ export class Player {
     }
     if (pose === 'ball') return this.drawBall(ctx, c);
     ctx.translate(shake, hop);
+    // Drunken sway: slow uneven rocking, plus teeter after landings/stumbles.
+    const dk = this.drunkT;
+    const swayAmt = pose === 'idle' ? 0.11 : pose === 'run' ? 0.06 : pose === 'victory' || pose === 'dance' ? 0.08 : 0.03;
+    const sway = (Math.sin(dk * 1.6) * 0.7 + Math.sin(dk * 0.57 + 1) * 0.5) * swayAmt + this.teeter * 0.5;
+    if (pose === 'run' && this.stumble > 0) lean += Math.sin(this.stumble / 0.35 * Math.PI) * 0.22;
+    ctx.translate(0, -40); ctx.rotate(sway); ctx.translate(0, 40);
+    if (this.hic > 0) ctx.translate(0, -Math.sin(this.hic / 0.4 * Math.PI) * 8);
     ctx.rotate(lean);
     const sq = this.sq * (pose === 'dash' ? 0.88 : 1);
     ctx.scale((pose === 'dash' ? 1.18 : 1) / Math.sqrt(sq), sq);
@@ -469,7 +497,12 @@ export class Player {
     // Head
     const hy = (duck ? -40 : -67) + bob + this.headY * 0.06 + (pose === 'run' ? Math.abs(Math.sin(ph - 0.6)) * -2 : 0);
     if (silhouette) { ellipse(ctx, 2, hy - 30, 30, 32, '#fff', 0); }
-    else this.drawHead(ctx, 2, hy, expr, lean);
+    else {
+      const hw = Math.sin(this.drunkT * 2.3) * 0.08 + Math.sin(this.drunkT * 0.9) * 0.05;
+      ctx.save(); ctx.translate(2, hy); ctx.rotate(hw); ctx.translate(-2, -hy);
+      this.drawHead(ctx, 2, hy, expr, lean + hw);
+      ctx.restore();
+    }
     // Front (aiming) arm with recoil
     let hx, hyy, point = true;
     if (this.parryT > 0 || this.parryFlash > 0) { hx = 16; hyy = shY - 36; point = false; }
@@ -567,25 +600,44 @@ export class Player {
     } else if (expr === 'happy') {
       ctx.lineWidth = 3.5;
       for (const ex of [e1, e2]) { ctx.beginPath(); ctx.arc(ex, ey + 3, 6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
-      circle(ctx, x + 22, ey + 9, 4.5, '#ff8f8f', 0);
+      ctx.fillStyle = 'rgba(255,90,90,.6)'; ctx.beginPath(); ctx.ellipse(x + 23, ey + 9, 7, 5, 0, 0, 7); ctx.ellipse(x - 9, ey + 9, 5.5, 4, 0, 0, 7); ctx.fill();
       ellipse(ctx, x + 9, ey + 9, 4, 3, '#c0392b', 2);
       ctx.beginPath(); ctx.moveTo(x - 1, ey + 14); ctx.quadraticCurveTo(x + 9, ey + 30, x + 19, ey + 14); ctx.closePath(); ctx.fillStyle = '#7a1c1c'; ctx.fill(); ctx.lineWidth = 3; ctx.stroke();
     } else {
       const blink = this.blink > 0;
       const squint = expr === 'strain';
-      pieEye(ctx, e1, ey, 7, squint ? 6 : 10, look, blink);
-      pieEye(ctx, e2, ey, 7, squint ? 6 : 10, look, blink);
+      const cross = Math.sin(this.drunkT * 0.8) * 0.6;
+      pieEye(ctx, e1, ey, 7, squint ? 6 : 10, look + cross, blink);
+      pieEye(ctx, e2, ey + 1.5, 7, squint ? 6 : 10, look - cross, blink);
+      if (!blink && !squint) {
+        // Heavy, droopy eyelids (one lower than the other)
+        const lid = pint ? '#c98a26' : '#a85c1c';
+        for (const [ex, k] of [[e1, 0.42 + Math.sin(this.drunkT * 0.7) * 0.12], [e2, 0.55 + Math.sin(this.drunkT * 0.7 + 1) * 0.12]]) {
+          ctx.save(); ctx.beginPath(); ctx.ellipse(ex, ey + (ex === e2 ? 1.5 : 0), 7.6, 10.6, 0, 0, 7); ctx.clip();
+          const ly = ey - 11 + 21 * k;
+          ctx.fillStyle = lid; ctx.fillRect(ex - 9, ey - 12, 18, ly - (ey - 12));
+          ctx.beginPath(); ctx.moveTo(ex - 9, ly + 1); ctx.quadraticCurveTo(ex, ly + 4, ex + 9, ly - 1); ctx.lineWidth = 2.6; ctx.strokeStyle = INK; ctx.stroke();
+          ctx.restore();
+        }
+      }
       if (expr === 'focus' || squint) {
         ctx.lineWidth = 3.5; ctx.beginPath();
         ctx.moveTo(e1 - 7, ey - 14); ctx.lineTo(e1 + 5, ey - 9); ctx.moveTo(e2 + 7, ey - 14); ctx.lineTo(e2 - 5, ey - 9); ctx.stroke();
       }
-      circle(ctx, x + 22, ey + 10, 4, '#ff8f8f', 0);
-      ellipse(ctx, x + 9, ey + 9, 4, 3, '#c0392b', 2);
+      // Flushed cheeks and a red nose
+      ctx.fillStyle = 'rgba(255,90,90,.55)'; ctx.beginPath(); ctx.ellipse(x + 23, ey + 10, 6.5, 4.5, 0, 0, 7); ctx.ellipse(x - 9, ey + 10, 5, 4, 0, 0, 7); ctx.fill();
+      ellipse(ctx, x + 9, ey + 9, 5, 4, '#e0403a', 2);
+      circle(ctx, x + 8, ey + 7.5, 1.5, '#fff', 0);
       if (squint) { ellipse(ctx, x + 9, ey + 20, 9, 7, '#5a1010', 3); }
       else if (expr === 'focus') {
         roundRect(ctx, x + 1, ey + 13, 16, 7, 3, '#fff', 2.5);
         ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 9, ey + 13); ctx.lineTo(x + 9, ey + 20); ctx.stroke();
-      } else mouth(ctx, x + 9, ey + 16, 8, 0.15);
+      } else {
+        // Lopsided, sloppy grin
+        ctx.beginPath(); ctx.moveTo(x, ey + 15); ctx.quadraticCurveTo(x + 8, ey + 26 + (this.hic > 0 ? 4 : 0), x + 19, ey + 12);
+        ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.lineCap = 'round'; ctx.stroke();
+        if (this.hic > 0) ellipse(ctx, x + 10, ey + 20, 4, 4, '#5a1010', 2);
+      }
     }
   }
 

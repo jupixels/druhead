@@ -109,6 +109,13 @@ export class World {
     this.fx.push({ k: 'spark', x, y, color: col, s: 0.55, t: 0, life: 0.06, rot: rand(0, 6) });
     if (Math.random() < 0.35) this.fx.push({ k: 'ring', x, y, t: 0, life: 0.12, color: col, r0: 6, r1: 26 });
   }
+  hiccup(p) {
+    if (this.state !== 'play' && this.state !== 'intro') return;
+    const hx = p.x + p.facing * 14, hy = p.y - 112;
+    this.fx.push({ k: 'text', x: hx + p.facing * 14, y: hy - 6, str: 'hic!', color: '#fff3d0', size: 18, t: 0, life: 0.7 });
+    for (let i = 0; i < 3; i++) this.fx.push({ k: 'bubble', x: hx + (Math.random() - 0.5) * 16, y: hy + 10, vx: (Math.random() - 0.5) * 30, vy: -60 - Math.random() * 50, r: 3 + Math.random() * 4, t: 0, life: 0.7 + Math.random() * 0.4 });
+    play('burp', { rate: 1.9, volume: 0.22, vary: 0.15, cooldown: 0.5 });
+  }
   dust(x, y) {
     for (let i = 0; i < 2; i++) this.fx.push({ k: 'dust', x: x + rand(-6, 6), y: y - 4, vx: rand(-40, 40), vy: rand(-60, -20), r: rand(6, 11), t: 0, life: rand(0.3, 0.45) });
   }
@@ -325,6 +332,10 @@ export class World {
       } else if (f.k === 'ring') {
         ctx.strokeStyle = f.color; ctx.lineWidth = 6 * (1 - k);
         ctx.beginPath(); ctx.arc(f.x, f.y, (f.r0 ?? 20) + k * ((f.r1 ?? 100) - (f.r0 ?? 20)), 0, 7); ctx.stroke();
+      } else if (f.k === 'bubble') {
+        ctx.globalAlpha = 1 - k;
+        circle(ctx, f.x + f.vx * f.t + Math.sin(f.t * 12) * 3, f.y + f.vy * f.t, f.r, 'rgba(255,250,230,.85)', 1.5);
+        ctx.globalAlpha = 1;
       } else if (f.k === 'dust') {
         ctx.globalAlpha = (1 - k) * 0.9;
         circle(ctx, f.x + f.vx * f.t, f.y + f.vy * f.t, f.r * (0.6 + k * 0.8), '#efe3c0', 2);

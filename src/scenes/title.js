@@ -140,7 +140,7 @@ export class TitleScene {
     // Spotlights on the dancers
     for (const d of this.dancers) { const g = ctx.createRadialGradient(d.x, 600, 10, d.x, 600, 200); g.addColorStop(0, 'rgba(255,245,200,.45)'); g.addColorStop(1, 'rgba(255,245,200,0)'); ctx.fillStyle = g; ctx.fillRect(d.x - 220, 380, 440, 260); }
     // Dancers (big)
-    for (const d of this.dancers) { ctx.save(); ctx.translate(d.x, d.y); ctx.scale(1.55, 1.55); ctx.translate(-d.x, -d.y); d.draw(ctx); ctx.restore(); }
+    for (const d of this.dancers) { ctx.save(); ctx.translate(d.x, d.y); ctx.scale(1.85, 1.85); ctx.translate(-d.x, -d.y); d.draw(ctx); ctx.restore(); }
     // Logo on an arc
     this.drawLogo(ctx, W / 2, 210, t);
     // Ribbon banner

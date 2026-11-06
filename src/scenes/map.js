@@ -253,7 +253,7 @@ export class MapScene {
     const things = [];
     for (const nd of NODES) things.push({ y: nd.y + 40, d: () => this.drawNode(ctx, nd) });
     for (const np of NPCS) things.push({ y: np.y, d: () => drawNpc(ctx, np, this.t) });
-    for (const p of this.tokens) things.push({ y: p.y, d: () => { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(0.6, 0.6); ctx.translate(-p.x, -p.y); p.draw(ctx); ctx.restore(); } });
+    for (const p of this.tokens) things.push({ y: p.y, d: () => { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(0.72, 0.72); ctx.translate(-p.x, -p.y); p.draw(ctx); ctx.restore(); } });
     things.sort((a, b) => a.y - b.y).forEach((t) => t.d());
     // Drifting cloud shadows
     ctx.save(); ctx.fillStyle = 'rgba(20,30,40,.10)';
