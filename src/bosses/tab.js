@@ -37,6 +37,7 @@ export class Tab extends Boss {
   introUpdate(dt, w) { this.t += dt; this.reg = Math.sin(this.t * 8) > 0.6 ? 1 : this.reg; if (this.t > 0.6 && !this.laughed) { this.laughed = true; play('roar', { rate: 1.3, volume: 0.6 }); } }
 
   update(dt, w) {
+    this.tickPhases(w);
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
     const s = this.spd * (1 + this.phase * 0.06);
     const T = (v) => v / s;
@@ -321,7 +322,7 @@ export const tabLevel = {
   setup(w) {
     w.boss = new Tab(w);
     w.def.phaseMarks = w.diff === 0 ? [0.25, 0.5] : [0.25, 0.5, 0.75];
-    w.platforms.push({ x: 300, y: 480, w: 120 }, { x: 560, y: 400, w: 120 });
+    w.platforms.push({ x: 300, y: 495, w: 130 }, { x: 560, y: 400, w: 130 });
   },
   drawBg(ctx) { if (!bg) bg = buildBg(); ctx.drawImage(bg, 0, 0); },
   drawPlatform(ctx, p) {

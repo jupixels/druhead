@@ -39,6 +39,7 @@ export class Rum extends Boss {
   introUpdate(dt) { this.t += dt; const k = Math.max(0, 1 - this.t / 1.1); this.x = 1060 + k * k * 700; this.y = this.baseY + Math.sin(this.t * 1.5) * 12; }
 
   update(dt, w) {
+    this.tickPhases(w);
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
     const s = this.spd * (this.phase >= 1 ? 1.1 : 1);
     const T = (v) => v / s;

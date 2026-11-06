@@ -30,8 +30,8 @@ export const tutorialLevel = {
   setup(w) {
     w.length = 5600; w.segs = SEGS;
     w.invincible = true;
-    w.platforms.push({ x: 1180, y: 470, w: 200 }, { x: 1460, y: 380, w: 200 });
-    w.enemies.push(target(900, GROUND), target(1060, GROUND), target(1560, 380 - 0), target(2700, GROUND - 0, 5));
+    w.platforms.push({ x: 1180, y: 495, w: 200 }, { x: 1460, y: 395, w: 200 });
+    w.enemies.push(target(900, GROUND), target(1060, GROUND), target(1560, 395), target(2700, GROUND - 0, 5));
     w.enemies.push(target(2480, 300, 5));
     w.enemies.push(target(4300, GROUND, 40, true));
     w.flagX = 5300;

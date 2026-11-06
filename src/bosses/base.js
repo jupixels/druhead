@@ -19,6 +19,13 @@ export class Boss {
     this.t = 0;
     this.act = 'idle'; this.actT = 0; this.lastAct = null;
     this.invulnerable = false;
+    this.pending = [];
+  }
+  // Phase changes wait until the boss is between attacks, so it never gets
+  // stranded mid-jump or mid-swing.
+  get resting() { return ['idle', 'gidle', 'float', 'twist', 'roll'].includes(this.act); }
+  tickPhases(w) {
+    if (this.pending.length && this.resting && !this.dying) { const p = this.pending.shift(); this.onPhase && this.onPhase(p, w); }
   }
   // Light difficulty skips the final phase.
   get endFrac() { return this.w.diff === 0 && this.phases.length ? this.phases[this.phases.length - 1] : 0; }
@@ -36,7 +43,7 @@ export class Boss {
     const frac = this.hp / this.maxHp;
     while (this.phase < this.phases.length && frac <= this.phases[this.phase]) {
       this.phase++;
-      if (frac > this.endFrac) this.onPhase && this.onPhase(this.phase, w);
+      if (frac > this.endFrac) this.pending.push(this.phase);
     }
     if (frac <= this.endFrac) this.die(w);
   }

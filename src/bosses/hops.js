@@ -66,6 +66,7 @@ export class Hops extends Boss {
   }
 
   update(dt, w) {
+    this.tickPhases(w);
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
     const s = this.spd * (this.phase >= 1 ? 1.15 : 1);
     const T = (v) => v / s;
@@ -114,7 +115,7 @@ export class Hops extends Boss {
 
       case 'slam':
         if (this.step === 0) { this.squash = 0.8; if (this.actT > T(0.45)) { this.step = 1; this.vy = -1700; play('whoosh', { rate: 0.6 }); } }
-        else if (this.step === 1) { this.vy += 2600 * dt; this.y += this.vy * dt; if (this.y < -400) { this.step = 2; this.aim = clamp(tgt.x, 200, 1080); this.shadowT = 0; } }
+        else if (this.step === 1) { this.vy -= 1800 * dt; this.y += this.vy * dt; this.squash = 1.25; if (this.y < -420) { this.step = 2; this.aim = clamp(tgt.x, 200, 1080); this.shadowT = 0; this.vy = 0; } }
         else if (this.step === 2) { this.x = this.aim; this.shadowT += dt; if (this.shadowT > T(0.65)) { this.step = 3; this.vy = 2400; } }
         else if (this.step === 3) {
           this.y += this.vy * dt;

@@ -55,6 +55,7 @@ export class Agave extends Boss {
   }
 
   update(dt, w) {
+    this.tickPhases(w);
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
     const s = this.spd * (this.phase >= 1 ? 1.12 : 1);
     const T = (v) => v / s;
@@ -66,7 +67,7 @@ export class Agave extends Boss {
         if (this.giant) { this.setAct('gidle'); break; }
         // Return to positions
         B.ball = false;
-        B.x += clamp((this.phase ? 300 : 900) - B.x, -400 * dt, 400 * dt);
+        B.x += clamp((this.tagged ? 300 : 900) - B.x, -400 * dt, 400 * dt);
         if (this.actT > T(this.idleFor)) this.chooseAct(this.phase === 0 ? ['roll', 'spines', 'elbow'] : ['roll', 'spines', 'spikes', 'limes', 'elbow']);
         break;
       case 'roll':
@@ -78,7 +79,7 @@ export class Agave extends Boss {
         } else if (this.step === 2) {
           B.x += B.vx * dt; B.rot += (B.vx / 55) * dt;
           if (B.vy || B.y < GROUND) { B.vy += 2400 * dt; B.y += B.vy * dt; if (B.y >= GROUND) { B.y = GROUND; B.vy = 0; } }
-          const home = this.phase ? 300 : 900;
+          const home = this.tagged ? 300 : 900;
           if ((B.vx > 0 && B.x >= home && B.x > 640) || (B.vx < 0 && B.x <= home && B.x < 640) || B.x < 60 || B.x > 1100) { B.ball = false; B.vx = 0; B.y = GROUND; this.idleFor = 0.7; this.setAct('idle'); }
         }
         break;
@@ -108,7 +109,7 @@ export class Agave extends Boss {
         // Blanco leaps over to the far corner: now they flank you.
         { const k = Math.min(1, this.actT / 1.0); if (this.step === 0) { this.fromX = B.x; this.step = 1; play('whoosh', { rate: 0.6 }); }
           B.x = this.fromX + (300 - this.fromX) * k; B.y = GROUND - Math.sin(k * Math.PI) * 380; B.ball = k < 1; B.rot -= dt * 10; }
-        if (this.actT > 1.2) { B.y = GROUND; B.ball = false; this.idleFor = 0.5; this.setAct('idle'); }
+        if (this.actT > 1.2) { B.y = GROUND; B.ball = false; this.tagged = true; this.idleFor = 0.5; this.setAct('idle'); }
         break;
       case 'spikes':
         // Rows of spines burst up from the canvas; jump over each one.

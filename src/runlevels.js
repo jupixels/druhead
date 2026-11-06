@@ -135,8 +135,8 @@ export const pubcrawlLevel = makeRunLevel({
   id: 'pubcrawl', name: 'Pub Crawl', subtitle: 'A Night on Tavern Row', par: 150, length: 7400,
   introSub: 'Dodge the drunks and reach the end of Tavern Row!', taunt: 'Too many stops on this crawl, pal.',
   ground: pubGround,
-  platforms: [{ x: 880, y: 470, w: 180 }, { x: 2180, y: 440, w: 170 }, { x: 4400, y: 450, w: 200 }, { x: 4800, y: 370, w: 200 }, { x: 5560, y: 470, w: 200 }, { x: 6360, y: 460, w: 170 }],
-  coins: [[970, 420], [2260, 390], [4900, 320], [5900, 480], [7000, 560]],
+  platforms: [{ x: 880, y: 495, w: 180 }, { x: 2180, y: 450, w: 170 }, { x: 4400, y: 495, w: 200 }, { x: 4750, y: 400, w: 200 }, { x: 5560, y: 495, w: 200 }, { x: 6360, y: 470, w: 170 }],
+  coins: [[970, 445], [2260, 400], [4850, 350], [5900, 480], [7000, 560]],
   cherries: [[1400, 470], [3600, 460], [6100, 400]],
   enemies: [
     { x: 1300, type: 'runner' }, { x: 1500, type: 'runner' }, { x: 1600, type: 'flyer', y: 320 },
@@ -191,8 +191,8 @@ export const vineyardLevel = makeRunLevel({
   id: 'vineyard', name: 'Vineyard Dash', subtitle: 'Hills of Grapes and Barrels', par: 160, length: 7800,
   introSub: 'Race through the vineyard before the harvest gets you!', taunt: 'Crushed like a grape!',
   ground: vinGround,
-  platforms: [{ x: 1180, y: 480, w: 180 }, { x: 1980, y: 460, w: 180 }, { x: 2480, y: 430, w: 180 }, { x: 4600, y: 440, w: 220 }, { x: 5180, y: 420, w: 180 }, { x: 5680, y: 430, w: 180 }, { x: 6480, y: 470, w: 180 }],
-  coins: [[1270, 430], [2560, 380], [4700, 390], [5480, 440], [7400, 560]],
+  platforms: [{ x: 1180, y: 495, w: 180 }, { x: 1980, y: 495, w: 180 }, { x: 2480, y: 440, w: 180 }, { x: 4600, y: 495, w: 220 }, { x: 5180, y: 495, w: 180 }, { x: 5680, y: 440, w: 180 }, { x: 6480, y: 495, w: 180 }],
+  coins: [[1270, 445], [2560, 390], [4700, 445], [5480, 440], [7400, 560]],
   cherries: [[1650, 450], [4300, 470], [6200, 430]],
   enemies: [
     { x: 900, type: 'runner', look: 'grape', hop: true }, { x: 1100, type: 'flyer', y: 300, look: 'bee' }, { x: 1500, type: 'roller', speed: 360 },

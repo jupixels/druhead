@@ -44,6 +44,7 @@ export class Merlot extends Boss {
   introUpdate(dt, w) { this.t += dt; this.sing = Math.max(0, Math.sin(this.t * 4)); this.rise = Math.max(0, 1 - this.t / 0.9); if (this.t > 0.9 && !this.risen) { this.risen = true; play('bell'); w.puff(this.x - 80, GROUND, 50); w.puff(this.x + 80, GROUND, 50); } }
 
   update(dt, w) {
+    this.tickPhases(w);
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
     const s = this.spd * (this.phase >= 1 ? 1.1 : 1);
     const T = (v) => v / s;
@@ -400,7 +401,7 @@ export const merlotLevel = {
   setup(w) {
     w.boss = new Merlot(w);
     w.def.phaseMarks = w.diff === 0 ? [0.34] : [0.34, 0.67];
-    w.platforms.push({ x: 110, y: 470, w: 200 }, { x: 430, y: 380, w: 200 }, { x: 760, y: 470, w: 160 });
+    w.platforms.push({ x: 110, y: 490, w: 200 }, { x: 430, y: 390, w: 200 }, { x: 760, y: 490, w: 160 });
   },
   drawBg(ctx, w) {
     if (!bg) bg = buildBg();

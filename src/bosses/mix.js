@@ -24,6 +24,7 @@ export class Mix extends Boss {
   introUpdate(dt, w) { this.t += dt; const k = Math.max(0, 1 - this.t / 0.7); this.x = 1060 + k * k * 520; this.shake = this.t > 0.7 && this.t < 1.4 ? 1.5 : 0; if (this.t > 0.7 && !this.arrived) { this.arrived = true; play('ice'); w.puff(this.x + 60, GROUND, 40); } }
 
   update(dt, w) {
+    this.tickPhases(w);
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
     const s = this.spd * (this.phase >= 1 ? 1.1 : 1);
     const T = (v) => v / s;
@@ -221,7 +222,7 @@ export const mixLevel = {
     w.boss = new Mix(w);
     w.def.phaseMarks = w.diff === 0 ? [0.34] : [0.34, 0.67];
     // Two coasters that glide back and forth
-    w.platforms.push({ x: 160, y: 440, w: 150, vx: 90, min: 80, max: 520 }, { x: 640, y: 360, w: 150, vx: -110, min: 380, max: 900 });
+    w.platforms.push({ x: 160, y: 490, w: 160, vx: 90, min: 80, max: 520 }, { x: 640, y: 400, w: 160, vx: -110, min: 300, max: 880 });
   },
   update(dt, w) { for (const p of w.platforms) { p.x += p.vx * dt; if (p.x < p.min || p.x > p.max) p.vx *= -1; } },
   drawBg(ctx, w) {

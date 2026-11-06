@@ -5,7 +5,7 @@ import { WEAPONS, Beam, Spirit } from './weapons.js';
 import { play } from './audio.js';
 import { rumble } from './world.js';
 
-const GRAV = 2700, JUMP_V = -1000, RUN = 345, DASH_V = 800, DASH_T = 0.25;
+const GRAV = 2700, JUMP_V = -1060, RUN = 345, DASH_V = 800, DASH_T = 0.25;
 export const METER_MAX = 500;
 
 export const CHARACTERS = [

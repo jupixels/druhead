@@ -62,7 +62,7 @@ export const barfightLevel = {
     w.waves = waves; w.wave = 0; w.toSpawn = waves[0]; w.spawnT = 1.0; w.waveGap = 0;
     w.total = waves.reduce((a, b) => a + b, 0);
     for (const p of w.players) p.noShoot = true;
-    w.platforms.push({ x: 300, y: 470, w: 170 }, { x: 810, y: 470, w: 170 }, { x: 555, y: 360, w: 170 });
+    w.platforms.push({ x: 300, y: 490, w: 170 }, { x: 810, y: 490, w: 170 }, { x: 555, y: 390, w: 170 });
   },
   progress(w) { return clamp(w.parried / w.total, 0, 1); },
   update(dt, w) {
