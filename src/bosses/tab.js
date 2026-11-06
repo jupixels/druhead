@@ -1,6 +1,7 @@
+import { paintify } from '../fx.js';
 // Final boss: Barnaby "Big Tab" Tapsworth, owner of the Last Call Saloon.
 import { G, W, H, INK, PINK, GROUND, clamp, rand, pick } from '../core.js';
-import { ellipse, circle, poly, hose, pieEye, glove, roundRect, text, starburst, mouth, FONT_TITLE, FONT_UI } from '../draw.js';
+import { ellipse, circle, poly, hose, pieEye, glove, roundRect, text, starburst, mouth, FONT_TITLE, FONT_UI, sbox, blob } from '../draw.js';
 import { Boss } from './base.js';
 import { Proj, Enemy, drawPinkOrb, drawCherry } from '../entities.js';
 import { play } from '../audio.js';
@@ -33,7 +34,7 @@ export class Tab extends Boss {
     if (p === 3) { this.setAct('grow'); G.shake = 16; }
     else { this.setAct('idle'); this.idleFor = 0.6; }
   }
-  introUpdate(dt) { this.t += dt; }
+  introUpdate(dt, w) { this.t += dt; this.reg = Math.sin(this.t * 8) > 0.6 ? 1 : this.reg; if (this.t > 0.6 && !this.laughed) { this.laughed = true; play('roar', { rate: 1.3, volume: 0.6 }); } }
 
   update(dt, w) {
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
@@ -163,7 +164,7 @@ export class Tab extends Boss {
     hose(ctx, -40, -60, -46, -30, -50, -8, 18, '#3a2a4a'); hose(ctx, 40, -60, 46, -30, 50, -8, 18, '#3a2a4a');
     for (const x of [-50, 50]) ellipse(ctx, x - 10, -8, 26, 12, '#111', 3);
     // Big round body in a striped waistcoat
-    ellipse(ctx, 0, -200, 125, 160, '#7a1c1c', 5);
+    blob(ctx, 0, -200, 125, 160, '#7a1c1c', 5, 1.3);
     ctx.save(); ctx.beginPath(); ctx.ellipse(0, -200, 125, 160, 0, 0, 7); ctx.clip();
     ctx.strokeStyle = 'rgba(255,220,150,.3)'; ctx.lineWidth = 6; for (let x = -120; x < 130; x += 30) { ctx.beginPath(); ctx.moveTo(x, -360); ctx.lineTo(x, -40); ctx.stroke(); }
     ctx.restore();
@@ -176,7 +177,7 @@ export class Tab extends Boss {
     // Gold watch chain
     ctx.strokeStyle = '#ffd84a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-100, -150); ctx.quadraticCurveTo(-80, -100, -60, -130); ctx.stroke();
     // Head (a big jug)
-    roundRect(ctx, -70, -440, 140, 110, 40, '#c9762a', 5);
+    sbox(ctx, -70, -440, 140, 110, 40, '#c9762a', 5, 1.2);
     ellipse(ctx, 70, -390, 24, 30, null, 6);
     pieEye(ctx, -36, -405, 15, 19, Math.PI, this.hitT > 0.03);
     pieEye(ctx, 12, -405, 15, 19, Math.PI, this.hitT > 0.03);
@@ -202,7 +203,7 @@ export class Tab extends Boss {
   drawGiant(ctx, sh) {
     ctx.save(); ctx.translate(sh, 0);
     // Huge face rising from behind the bar
-    roundRect(ctx, 880, 120, 420, 560, 120, '#c9762a', 6);
+    sbox(ctx, 880, 120, 420, 560, 120, '#c9762a', 6, 1.3);
     roundRect(ctx, 840, 70, 500, 60, 14, '#1b1b22', 6);
     roundRect(ctx, 930, -120, 320, 200, 12, '#1b1b22', 6);
     ctx.fillStyle = '#7a1c1c'; ctx.fillRect(930, 30, 320, 34);
@@ -310,7 +311,7 @@ function buildBg() {
   ctx.fillStyle = '#5a3218'; ctx.fillRect(0, GROUND, W, H - GROUND);
   ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
   ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 2; for (let x = 0; x < W; x += 90) { ctx.beginPath(); ctx.moveTo(x, GROUND); ctx.lineTo(x - 30, H); ctx.stroke(); }
-  return c;
+  return paintify(c);
 }
 
 export const tabLevel = {

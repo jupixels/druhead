@@ -58,7 +58,9 @@ export function glove(ctx, x, y, r, ang = 0, point = false) {
   if (point) {
     roundRect(ctx, r * 0.3, -r * 0.28, r * 1.3, r * 0.56, r * 0.28, '#fff', 2.5);
   }
-  ellipse(ctx, 0, 0, r, r * 0.9, '#fff', 2.5);
+  ellipse(ctx, 0, 0, r, r * 0.9, '#fff', 0);
+  ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.9, 0, 0, 7); shadePath(ctx, 0, 0, r, 0.8);
+  ellipse(ctx, 0, 0, r, r * 0.9, null, 2.5);
   ctx.beginPath(); ctx.moveTo(-r * 0.2, -r * 0.5); ctx.lineTo(-r * 0.1, r * 0.1);
   ctx.moveTo(r * 0.25, -r * 0.55); ctx.lineTo(r * 0.3, 0);
   ctx.lineWidth = 1.6; ctx.strokeStyle = INK; ctx.stroke();
@@ -67,8 +69,11 @@ export function glove(ctx, x, y, r, ang = 0, point = false) {
 
 export function shoe(ctx, x, y, dir = 1, color = '#3a2414', s = 1) {
   ctx.save(); ctx.translate(x, y); ctx.scale(dir * s, s);
-  ellipse(ctx, 6, -7, 15, 9, color, 3);
-  ellipse(ctx, 12, -10, 4, 2.5, 'rgba(255,255,255,.5)', 0);
+  ellipse(ctx, 6, -7, 16, 9.5, color, 0);
+  ctx.beginPath(); ctx.ellipse(6, -7, 16, 9.5, 0, 0, 7); shadePath(ctx, 6, -7, 16, 1.2);
+  ellipse(ctx, 6, -7, 16, 9.5, null, 3);
+  ellipse(ctx, 13, -11, 5, 2.5, 'rgba(255,255,255,.55)', 0);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-9, -3, 30, 3);
   ctx.restore();
 }
 
@@ -126,4 +131,35 @@ export function card(ctx, x, y, fill01, active) {
     ctx.fillRect(x + 2, y + h - 2 - fh, w - 4, fh);
   }
   if (fill01 >= 1) { ctx.fillStyle = '#fff'; ctx.fillRect(x + 4, y + 4, 3, 8); }
+}
+
+// Soft cartoon shading for a shape already traced as the current path:
+// a warm highlight up-left and a cool shadow down-right, clipped to the shape.
+export function shadePath(ctx, x, y, r, strength = 1) {
+  ctx.save();
+  ctx.clip();
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.05, x, y, r * 1.25);
+  g.addColorStop(0, `rgba(255,250,235,${0.42 * strength})`);
+  g.addColorStop(0.45, 'rgba(255,250,235,0)');
+  g.addColorStop(0.75, 'rgba(40,15,0,0)');
+  g.addColorStop(1, `rgba(40,15,0,${0.38 * strength})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(x - r * 2, y - r * 2, r * 4, r * 4);
+  ctx.restore();
+}
+// Filled + shaded + inked ellipse in one call.
+export function blob(ctx, x, y, rx, ry, fill, lw = 3.5, strength = 1, rot = 0) {
+  ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), rot, 0, Math.PI * 2);
+  ctx.fillStyle = fill; ctx.fill();
+  shadePath(ctx, x, y, Math.max(rx, ry), strength);
+  ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), rot, 0, Math.PI * 2);
+  ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+}
+// Shaded rounded rect.
+export function sbox(ctx, x, y, w, h, r, fill, lw = 3.5, strength = 1) {
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
+  ctx.fillStyle = fill; ctx.fill();
+  shadePath(ctx, x + w / 2, y + h / 2, Math.max(w, h) / 2, strength);
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
+  ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
 }

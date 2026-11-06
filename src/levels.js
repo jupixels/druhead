@@ -7,6 +7,7 @@ import { mixLevel } from './bosses/mix.js';
 import { tabLevel } from './bosses/tab.js';
 import { pubcrawlLevel, vineyardLevel } from './runlevels.js';
 import { barfightLevel } from './barfight.js';
+import { decorate } from './arenafx.js';
 
 export const LEVELS = {
   hops: hopsLevel,
@@ -19,6 +20,7 @@ export const LEVELS = {
   vineyard: vineyardLevel,
   barfight: barfightLevel,
 };
+decorate(LEVELS);
 
 // Cuphead-style grading.
 export function gradeFor(world) {

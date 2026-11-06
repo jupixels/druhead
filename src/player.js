@@ -1,8 +1,9 @@
 // Player characters: Shotty (shot glass head) and Pint (pint glass head).
 import { G, INK, PINK, clamp, rand, wob } from './core.js';
-import { ellipse, circle, poly, hose, pieEye, glove, shoe, mouth, roundRect } from './draw.js';
+import { ellipse, circle, poly, hose, pieEye, glove, shoe, mouth, roundRect, starburst, shadePath } from './draw.js';
 import { WEAPONS, Beam, Spirit } from './weapons.js';
 import { play } from './audio.js';
+import { rumble } from './world.js';
 
 const GRAV = 2700, JUMP_V = -1000, RUN = 345, DASH_V = 800, DASH_T = 0.25;
 export const METER_MAX = 500;
@@ -41,6 +42,34 @@ export class Player {
     this.w = 36; this.h = 84;
     this.landT = 0;
     this.stats = { hits: 0, parries: 0, supers: 0, ex: 0 };
+    // Visual-only animation state
+    this.sq = 1; this.sqV = 0;          // squash & stretch spring
+    this.headY = 0; this.headV = 0;     // head follow-through spring
+    this.slosh = 0;                     // liquid tilt in the glass head
+    this.recoil = 0; this.shootT = 0;
+    this.runPh = 0; this.airT = 0; this.jumped = false;
+    this.introT = -1; this.victoryT = -1;
+    this.blinkT = 2 + Math.random() * 2; this.blink = 0;
+  }
+
+  // Visual springs, called every frame from update and from intro/KO.
+  animate(dt, w) {
+    const k = 320, d = 16;
+    this.sqV += (k * (1 - this.sq) - d * this.sqV) * dt; this.sq += this.sqV * dt;
+    this.headV += (k * (0 - this.headY) - d * this.headV) * dt; this.headY += this.headV * dt;
+    const tgt = clamp(-this.vx / RUN * 0.28, -0.35, 0.35);
+    this.slosh += (tgt - this.slosh) * Math.min(1, dt * 7);
+    this.recoil = Math.max(0, this.recoil - dt * 14);
+    this.shootT = Math.max(0, this.shootT - dt);
+    this.blinkT -= dt; if (this.blinkT <= 0) { this.blink = 0.12; this.blinkT = 2 + Math.random() * 3; }
+    this.blink = Math.max(0, this.blink - dt);
+    if (this.onGround) { this.airT = 0; } else this.airT += dt;
+    const running = this.onGround && Math.abs(this.vx) > 10 && !this.duck;
+    if (running) {
+      const before = Math.sin(this.runPh);
+      this.runPh += dt * 15;
+      if (w && Math.sign(before) !== Math.sign(Math.sin(this.runPh))) w.dust(this.x - this.facing * 14, this.y);
+    } else this.runPh = 0;
   }
 
   get weapon() { return WEAPONS[this.weapons[this.wIdx]]; }
@@ -53,6 +82,7 @@ export class Player {
   update(dt, w, inp) {
     if (this.dead) return this.updateGhost(dt, w);
     this.anim += dt;
+    this.animate(dt, w);
     this.invuln = Math.max(0, this.invuln - dt);
     this.parryFlash = Math.max(0, this.parryFlash - dt);
     this.landT = Math.max(0, this.landT - dt);
@@ -123,10 +153,12 @@ export class Player {
       this.vy = JUMP_V; this.onGround = false; this.coyote = 0; this.jumpBuf = 0;
       this.parryUsed = false;
       play('jump', { vary: 0.08 });
+      this.sq = 1.3; this.sqV = 0; this.headV = -260; this.jumped = true;
+      w.dust(this.x - 12, this.y); w.dust(this.x + 12, this.y);
     } else if (inp.pressed.jump && !this.onGround && !this.parryUsed) {
       this.parryT = 0.2; this.parryUsed = true;
     }
-    if (!inp.held.jump && this.vy < -300) this.vy *= 0.6; // variable jump height
+    if (inp.released.jump && this.vy < -300 && this.jumped && this.parryFlash <= 0) this.vy *= 0.5; // variable jump height
     this.dropT = Math.max(0, this.dropT - dt);
     this.vy += GRAV * dt;
     if (this.vy > 1500) this.vy = 1500;
@@ -152,13 +184,14 @@ export class Player {
         if (this.fireCd <= 0 && this.charge < 0.2 && inp.pressed.shoot) { /* wait for release */ }
       }
       if (inp.released.shoot) {
-        if (this.fireCd <= 0) { wp.fire(w, this, Math.atan2(this.aimY, this.aimX), this.charge >= 0.75); this.fireCd = wp.rate; }
+        if (this.fireCd <= 0) { wp.fire(w, this, Math.atan2(this.aimY, this.aimX), this.charge >= 0.75); this.fireCd = wp.rate; this.recoil = this.charge >= 0.75 ? 2 : 1; this.shootT = 0.3; w.muzzle(this.mx, this.my, this.weapons[this.wIdx]); }
         this.charge = 0;
       }
     } else if (inp.held.shoot && this.fireCd <= 0) {
       wp.fire(w, this, Math.atan2(this.aimY, this.aimX));
       this.fireCd = wp.rate;
-      w.muzzle(this.mx, this.my);
+      this.recoil = 1; this.shootT = 0.3;
+      w.muzzle(this.mx, this.my, this.weapons[this.wIdx]);
     }
 
     // EX / Super
@@ -231,6 +264,7 @@ export class Player {
     if (!this.onGround) this.plat = null;
     if (this.onGround && !wasGround) {
       this.airDash = false; this.parryUsed = false; this.landT = 0.12;
+      this.sq = 0.68; this.sqV = 0; this.headV = 300; this.jumped = false;
       if (this.vy >= 0) play('land', { vary: 0.1, volume: 0.6 });
       w.puff(this.x, this.y - 4, 16, '#efe3c0');
     }
@@ -271,6 +305,7 @@ export class Player {
     G.hitstop = 0.12; G.shake = Math.max(G.shake, 10);
     play('player_hit');
     w.hitFx(this.x, this.y - 50);
+    rumble(0.7, 220, this.idx);
     if (this.hp <= 0) this.die(w);
   }
 
@@ -297,141 +332,247 @@ export class Player {
   }
 
   // ---------------- Drawing ----------------
+  pose() {
+    if (this.victoryT >= 0) return 'victory';
+    if (this.introT >= 0) return 'intro';
+    if (this.superT > 0) return 'super';
+    if (this.hurtT > 0) return 'hurt';
+    if (this.dashT > 0) return 'dash';
+    if (this.exT > 0) return 'ex';
+    if (!this.onGround) return this.jumped && this.shootT <= 0 && !this.lock ? 'ball' : 'air';
+    if (this.duck) return 'duck';
+    if (Math.abs(this.vx) > 10) return 'run';
+    return 'idle';
+  }
+
   draw(ctx) {
     if (this.dead) return this.drawGhost(ctx);
-    if (this.invuln > 0 && this.courage <= 0 && this.superT <= 0 && Math.floor(this.invuln * 20) % 2 === 0) return;
+    const flick = this.invuln > 0 && this.courage <= 0 && this.superT <= 0 && this.introT < 0 && this.victoryT < 0 && Math.floor(this.invuln * 18) % 2 === 0;
+    const pose = this.pose();
     ctx.save();
     ctx.translate(this.x, this.y);
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(0, 0, 26, 6, 0, 0, 7); ctx.fill();
-    ctx.scale(this.facing, 1);
+    if (this.onGround) { ctx.fillStyle = 'rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(0, 0, 28 * (pose === 'duck' ? 1.2 : 1), 6, 0, 0, 7); ctx.fill(); }
     if (this.courage > 0) {
-      ctx.save(); ctx.globalAlpha = 0.45 + Math.sin(G.time * 20) * 0.2;
-      ctx.fillStyle = '#ffd84a'; ctx.beginPath(); ctx.ellipse(0, -60, 55, 80, 0, 0, 7); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.globalAlpha = 0.4 + Math.sin(G.time * 20) * 0.15;
+      ctx.fillStyle = '#ffd84a'; ctx.beginPath(); ctx.ellipse(0, -62, 58, 84, 0, 0, 7); ctx.fill(); ctx.restore();
     }
-    const c = this.char;
-    const air = !this.onGround;
-    const run = this.onGround && Math.abs(this.vx) > 10 && !this.duck;
-    const ph = this.anim * 13;
-    const bob = run ? Math.abs(Math.sin(ph)) * -5 : Math.sin(this.anim * 4) * 1.5;
-    let lean = 0;
-    if (this.dashT > 0) lean = 0.35;
-    if (this.hurtT > 0) lean = -0.3;
-    if (this.exT > 0) lean = -0.2;
-    ctx.rotate(lean);
-    const duck = this.duck ? 1 : 0;
-    const sq = this.landT > 0 ? 0.88 : 1;
-    ctx.scale(1, sq);
-    // Aim in local (flipped) space.
-    const lax = this.aimX * this.facing, lay = this.aimY;
-
-    // Legs
-    let f1x = -9, f1y = 0, f2x = 9, f2y = 0;
-    if (run) { f1x = Math.sin(ph) * 16; f1y = -Math.max(0, Math.cos(ph)) * 10; f2x = -Math.sin(ph) * 16; f2y = -Math.max(0, -Math.cos(ph)) * 10; }
-    if (air) { f1x = -12; f1y = -18; f2x = 10; f2y = -12; }
-    if (this.dashT > 0) { f1x = -30; f1y = -18; f2x = -18; f2y = -6; }
-    if (duck) { f1x = -16; f2x = 16; }
-    const hipY = duck ? -14 : -30 + bob;
-    hose(ctx, -5, hipY, -7, (hipY + f1y) / 2, f1x, f1y - 6, 6, INK);
-    hose(ctx, 5, hipY, 7, (hipY + f2y) / 2, f2x, f2y - 6, 6, INK);
-    shoe(ctx, f1x, f1y, 1, c.shoe);
-    shoe(ctx, f2x, f2y, 1, c.shoe);
-
-    // Back arm
-    const shY = (duck ? -32 : -56) + bob;
-    const swing = run ? Math.sin(ph + Math.PI) * 14 : 0;
-    hose(ctx, -6, shY, -18, shY + 8, -16 + swing, shY + 22, 6, '#fff');
-    glove(ctx, -16 + swing, shY + 24, 8);
-
-    // Torso
-    const ty = (duck ? -26 : -46) + bob;
-    ellipse(ctx, 0, ty, 16, duck ? 13 : 18, '#fbf6ea', 3);
-    // Shorts
-    ctx.save();
-    ctx.beginPath(); ctx.ellipse(0, ty, 16, duck ? 13 : 18, 0, 0, Math.PI * 2); ctx.clip();
-    ctx.fillStyle = c.shorts; ctx.fillRect(-20, ty + 2, 40, 30);
+    ctx.scale(this.facing * 1.1, 1.1);
+    if (pose === 'dash') {
+      for (let i = 3; i >= 1; i--) {
+        ctx.save(); ctx.globalAlpha = 0.16 * (4 - i); ctx.translate(-i * 26, 0);
+        this.drawFigure(ctx, pose, true); ctx.restore();
+      }
+    }
+    if (flick) ctx.globalAlpha = 0.3;
+    this.drawFigure(ctx, pose, false);
     ctx.restore();
-    ellipse(ctx, 0, ty, 16, duck ? 13 : 18, null, 3);
-    circle(ctx, -7, ty + 8, 2.5, '#fff', 1.5); circle(ctx, 7, ty + 8, 2.5, '#fff', 1.5);
-
-    // Head
-    const hy = (duck ? -42 : -66) + bob;
-    this.drawHead(ctx, 2, hy, lean);
-
-    // Front (aiming) arm
-    let hx, hyy;
-    if (this.parryT > 0 || this.parryFlash > 0) { hx = 14; hyy = shY - 30; }
-    else { hx = 8 + lax * 30; hyy = shY + 2 + lay * 30; }
-    hose(ctx, 6, shY, (6 + hx) / 2 + 4, (shY + hyy) / 2 + 6, hx, hyy, 6, '#fff');
-    glove(ctx, hx, hyy, 9, Math.atan2(lay, lax), this.parryT <= 0);
-    if (this.parryFlash > 0) { circle(ctx, hx, hyy, 22 * (this.parryFlash / 0.25) + 6, 'rgba(255,95,168,.6)', 0); }
-    // Charge glow
-    if (this.charge > 0.15 && this.weapon.charge) {
-      const k = Math.min(1, this.charge / 0.75);
-      ctx.fillStyle = k >= 1 ? (Math.floor(G.time * 20) % 2 ? '#e6ff9a' : '#9cff4a') : 'rgba(180,255,120,.6)';
-      ctx.beginPath(); ctx.arc(hx + lax * 14, hyy + lay * 14, 4 + k * 14, 0, 7); ctx.fill();
+    // Curved motion arcs around the jump ball
+    if (pose === 'ball') {
+      ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      const a = this.airT * 17 * this.facing;
+      for (const o of [0, Math.PI]) { ctx.beginPath(); ctx.arc(this.x, this.y - 48, 46, a + o, a + o + 0.9); ctx.stroke(); }
+      ctx.restore();
     }
+    if (this.parryFlash > 0) {
+      const k = this.parryFlash / 0.25;
+      ctx.save(); ctx.globalAlpha = k; ctx.strokeStyle = PINK; ctx.lineWidth = 6 * k;
+      ctx.beginPath(); ctx.arc(this.x, this.y - 50, 70 * (1.4 - k), 0, 7); ctx.stroke(); ctx.restore();
+    }
+  }
+
+  // Draws the character in local space (feet at 0,0, facing +x).
+  drawFigure(ctx, pose, silhouette) {
+    const c = this.char;
+    const lax = this.aimX * this.facing, lay = this.aimY;
+    const t = this.anim, ph = this.runPh;
+    let lean = 0, bob = 0, hop = 0;
+    let f1x = -9, f1y = 0, f2x = 9, f2y = 0, hipY = -30;
+    let expr = this.shootT > 0 || this.lock ? 'focus' : 'normal';
+    let backHand = null, frontHand = null, armsUp = false;
+    const shake = pose === 'super' ? Math.sin(G.time * 70) * 2 : 0;
+    switch (pose) {
+      case 'idle': bob = Math.sin(t * 3.4) * 1.6; break;
+      case 'run':
+        lean = 0.15; bob = -Math.abs(Math.sin(ph)) * 7;
+        f1x = Math.sin(ph) * 19; f1y = -Math.max(0, Math.cos(ph)) * 13;
+        f2x = -Math.sin(ph) * 19; f2y = -Math.max(0, -Math.cos(ph)) * 13;
+        break;
+      case 'duck': hipY = -12; f1x = -19; f2x = 19; lean = 0.12; break;
+      case 'air': f1x = -14; f1y = -24; f2x = 12; f2y = -12; lean = -0.05; break;
+      case 'dash': lean = 0.45; f1x = -34; f1y = -16; f2x = -22; f2y = -4; expr = 'focus'; backHand = [-30, -44]; break;
+      case 'hurt': lean = -0.35; f1x = -20; f1y = -10; f2x = 18; f2y = -4; expr = 'hurt'; armsUp = true; break;
+      case 'ex': lean = -0.22; f1x = -18; f2x = 14; expr = 'strain'; break;
+      case 'super': lean = -0.1; f1x = -22; f2x = 20; expr = 'strain'; break;
+      case 'intro': {
+        const k = this.introT;
+        if (k < 0.45) { this.sq = 1 - Math.sin(k / 0.45 * Math.PI) * 0.2; }
+        else if (k < 0.95) { hop = -Math.sin((k - 0.45) / 0.5 * Math.PI) * 46; f1y = -14; f2y = -8; armsUp = true; expr = 'happy'; }
+        else { expr = 'focus'; bob = Math.sin(t * 3.4) * 1.6; }
+        break;
+      }
+      case 'victory': {
+        hop = -Math.abs(Math.sin(this.victoryT * 6)) * 34; armsUp = true; expr = 'happy';
+        if (hop < -4) { f1y = -14; f2y = -10; }
+        break;
+      }
+    }
+    if (pose === 'ball') return this.drawBall(ctx, c);
+    ctx.translate(shake, hop);
+    ctx.rotate(lean);
+    const sq = this.sq * (pose === 'dash' ? 0.88 : 1);
+    ctx.scale((pose === 'dash' ? 1.18 : 1) / Math.sqrt(sq), sq);
+    const duck = pose === 'duck';
+    const ink = silhouette ? '#fff' : null;
+    hipY += bob;
+    const shY = (duck ? -32 : -57) + bob;
+    // Back arm
+    let bx, by;
+    if (armsUp) { bx = -32 + Math.sin(t * 18) * 4; by = shY - 38; }
+    else if (backHand) { [bx, by] = backHand; }
+    else { const sw = pose === 'run' ? Math.sin(ph + Math.PI) * 16 : Math.sin(t * 3.4) * 2; bx = -14 + sw; by = shY + 24; }
+    hose(ctx, -6, shY, (bx - 6) / 2 - 6, (shY + by) / 2 + 4, bx, by, 7, ink || '#fff');
+    if (!silhouette) glove(ctx, bx, by + 2, 9.5, armsUp ? -1.6 : 0);
+    // Legs (rubber hose, slight knee curve)
+    const leg = (fx, fy, side) => {
+      hose(ctx, side * 6, hipY, side * 6 + (fx - side * 6) * 0.5 + 6, (hipY + fy) / 2, fx, fy - 6, 7, INK);
+      if (!silhouette) shoe(ctx, fx, fy, 1, c.shoe, 1.1);
+    };
+    leg(f1x, f1y, -1);
+    // Torso
+    const ty = (duck ? -24 : -46) + bob;
+    const trx = 19, try_ = duck ? 14 : 20;
+    if (silhouette) { ellipse(ctx, 0, ty, trx, try_, '#fff', 0); }
+    else {
+      ellipse(ctx, 0, ty, trx, try_, '#fbf6ea', 0);
+      ctx.save(); ctx.beginPath(); ctx.ellipse(0, ty, trx, try_, 0, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = c.shorts; ctx.fillRect(-24, ty + 1, 48, 30);
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(-24, ty + 1, 48, 3);
+      ctx.restore();
+      ctx.beginPath(); ctx.ellipse(0, ty, trx, try_, 0, 0, Math.PI * 2); shadePath(ctx, 0, ty, try_, 1.1);
+      ellipse(ctx, 0, ty, trx, try_, null, 3);
+      circle(ctx, -7, ty + 7, 2.5, '#fff', 1.5); circle(ctx, 7, ty + 7, 2.5, '#fff', 1.5);
+    }
+    leg(f2x, f2y, 1);
+    // Head
+    const hy = (duck ? -40 : -67) + bob + this.headY * 0.06 + (pose === 'run' ? Math.abs(Math.sin(ph - 0.6)) * -2 : 0);
+    if (silhouette) { ellipse(ctx, 2, hy - 30, 30, 32, '#fff', 0); }
+    else this.drawHead(ctx, 2, hy, expr, lean);
+    // Front (aiming) arm with recoil
+    let hx, hyy, point = true;
+    if (this.parryT > 0 || this.parryFlash > 0) { hx = 16; hyy = shY - 36; point = false; }
+    else if (armsUp && pose !== 'hurt') { hx = 36 + Math.sin(t * 18 + 1) * 4; hyy = shY - 40; point = false; }
+    else if (pose === 'hurt') { hx = 20; hyy = shY - 30; point = false; }
+    else {
+      const reach = pose === 'ex' || pose === 'super' ? 36 : 30;
+      const rc = this.recoil * 7;
+      hx = 8 + lax * (reach - rc); hyy = shY + 2 + lay * (reach - rc);
+    }
+    hose(ctx, 6, shY, (6 + hx) / 2 + 4, (shY + hyy) / 2 + 6, hx, hyy, 7, ink || '#fff');
+    if (!silhouette) {
+      if (pose === 'super') { glove(ctx, hx, hyy, 10, Math.atan2(lay, lax), false); glove(ctx, hx - 6, hyy + 6, 10, Math.atan2(lay, lax), false); }
+      else glove(ctx, hx, hyy, 10.5, point ? Math.atan2(lay, lax) : -1.4, point);
+      if (this.parryFlash > 0) circle(ctx, hx, hyy, 10 + 18 * (this.parryFlash / 0.25), 'rgba(255,95,168,.55)', 0);
+      if (this.charge > 0.15 && this.weapon.charge) {
+        const k = Math.min(1, this.charge / 0.75);
+        const cx = hx + lax * 16, cy = hyy + lay * 16;
+        ctx.fillStyle = k >= 1 ? (Math.floor(G.time * 20) % 2 ? '#e6ff9a' : '#9cff4a') : 'rgba(180,255,120,.55)';
+        ctx.beginPath(); ctx.arc(cx, cy, 4 + k * 15, 0, 7); ctx.fill();
+        if (k >= 1) starburst(ctx, cx, cy, 26, 6, 'rgba(230,255,154,.6)', G.time * 6, 0);
+      }
+    }
+  }
+
+  drawBall(ctx, c) {
+    const spin = this.airT * 17;
+    ctx.translate(0, -48);
+    ctx.rotate(spin);
+    const s = 1 / Math.sqrt(this.sq);
+    ctx.scale(s, this.sq);
+    // Tucked limbs
+    shoe(ctx, -14, 26, 1, c.shoe, 0.9); shoe(ctx, 12, 24, -1, c.shoe, 0.9);
+    ellipse(ctx, 0, 8, 22, 20, '#fbf6ea', 0);
+    ctx.save(); ctx.beginPath(); ctx.ellipse(0, 8, 22, 20, 0, 0, 7); ctx.clip(); ctx.fillStyle = c.shorts; ctx.fillRect(-24, 10, 48, 24); ctx.restore();
+    ellipse(ctx, 0, 8, 22, 20, null, 3);
+    glove(ctx, -20, 4, 8); glove(ctx, 22, 6, 8);
+    ctx.save(); ctx.translate(0, 10); ctx.scale(0.82, 0.82);
+    this.drawHead(ctx, 0, -10, 'focus', 0);
     ctx.restore();
   }
 
-  drawHead(ctx, x, by, lean) {
+  drawHead(ctx, x, by, expr = 'normal', lean = 0) {
     const pint = this.char.head === 'pint';
     const tw = pint ? 30 : 31, bw = pint ? 23 : 21, hh = pint ? 66 : 54;
     const top = by - hh;
-    const hurt = this.hurtT > 0;
-    const blink = Math.floor(this.anim * 10) % 37 === 0;
     // Glass body
     const glassPts = [[x - tw, top], [x + tw, top], [x + bw, by], [x - bw, by]];
-    poly(ctx, glassPts, 'rgba(225,240,250,.95)', 0);
-    // Liquid
+    poly(ctx, glassPts, 'rgba(228,242,250,.96)', 0);
+    // Liquid with slosh (tilts against motion)
     const lt = top + (pint ? 14 : 10);
-    const tAt = (y) => (y - top) / hh;
-    const wAt = (y) => tw + (bw - tw) * tAt(y);
+    const wAt = (y) => tw + (bw - tw) * ((y - top) / hh);
+    const tilt = this.slosh * 14 - lean * 10;
+    const lw = wAt(lt) - 2;
     ctx.beginPath();
-    ctx.moveTo(x - wAt(lt) + 2, lt);
-    for (let i = 0; i <= 8; i++) { const px = x - wAt(lt) + 2 + (i / 8) * (wAt(lt) * 2 - 4); ctx.lineTo(px, lt + Math.sin(G.time * 6 + i) * 1.6); }
+    ctx.moveTo(x - lw, lt + tilt);
+    for (let i = 1; i <= 8; i++) { const k = i / 8; ctx.lineTo(x - lw + k * lw * 2, lt + tilt * (1 - 2 * k) + Math.sin(G.time * 7 + i * 1.3) * 1.4); }
     ctx.lineTo(x + bw - 2, by - (pint ? 4 : 9)); ctx.lineTo(x - bw + 2, by - (pint ? 4 : 9)); ctx.closePath();
-    ctx.fillStyle = pint ? '#e8a634' : '#c9762a'; ctx.fill();
-    // Thick base for shot glass
-    if (!pint) { ctx.fillStyle = 'rgba(200,225,240,.95)'; ctx.fillRect(x - bw + 1, by - 9, bw * 2 - 2, 8); }
-    // Bubbles in beer
-    if (pint) for (let i = 0; i < 4; i++) circle(ctx, x - 12 + i * 8, by - 8 - ((G.time * 40 + i * 13) % 36), 1.6, '#fff3c4', 0);
-    // Outline
+    ctx.fillStyle = pint ? '#eaa836' : '#c9762a'; ctx.fill();
+    // Inner shade on the liquid
+    ctx.save(); ctx.clip(); ctx.fillStyle = 'rgba(120,50,0,.18)'; ctx.fillRect(x + bw * 0.3, top, tw, hh); ctx.restore();
+    if (!pint) { ctx.fillStyle = 'rgba(205,228,242,.97)'; ctx.fillRect(x - bw + 1, by - 9, bw * 2 - 2, 8); }
+    if (pint) for (let i = 0; i < 5; i++) circle(ctx, x - 14 + i * 7, by - 8 - ((G.time * 42 + i * 13) % 40), 1.7, '#fff3c4', 0);
     poly(ctx, glassPts, null, 3.5, 7);
-    // Highlight
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(x - tw + 7, top + 10); ctx.lineTo(x - bw + 6, by - 14); ctx.stroke();
-    // Rim
-    ellipse(ctx, x, top, tw, 6, 'rgba(240,250,255,.95)', 3);
+    ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - tw + 14, top + 12); ctx.lineTo(x - bw + 12, top + 26); ctx.stroke();
+    ellipse(ctx, x, top, tw, 6, 'rgba(242,250,255,.97)', 3);
     if (pint) {
-      // Foam head spilling over the rim
       const fy = top - 2;
-      for (let i = 0; i < 6; i++) circle(ctx, x - tw + 4 + i * 10.5, fy - 4 + Math.sin(i * 2.1) * 3 + wob(i + 3, 0.8), 9, '#fffdf3', 2.5);
+      for (let i = 0; i < 6; i++) circle(ctx, x - tw + 4 + i * 10.5, fy - 4 + Math.sin(i * 2.1 + G.time * 2) * 2.5 + wob(i + 3, 0.8), 9, '#fffdf3', 2.5);
       ctx.fillStyle = '#fffdf3'; ctx.fillRect(x - tw + 2, fy - 2, tw * 2 - 4, 8);
       ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x + tw - 6, fy + 4);
-      ctx.quadraticCurveTo(x + tw + 4, fy + 14, x + tw - 2, fy + 22); ctx.stroke();
-      ctx.fillStyle = '#fffdf3'; ctx.beginPath(); ctx.arc(x + tw - 2, fy + 22, 4, 0, 7); ctx.fill(); ctx.stroke();
+      const drip = 18 + Math.sin(G.time * 1.5) * 5;
+      ctx.quadraticCurveTo(x + tw + 4, fy + 12, x + tw - 2, fy + drip); ctx.stroke();
+      ctx.fillStyle = '#fffdf3'; ctx.beginPath(); ctx.arc(x + tw - 2, fy + drip, 4, 0, 7); ctx.fill(); ctx.stroke();
     } else {
-      // Lemon wedge on the rim
-      ctx.save(); ctx.translate(x + tw - 6, top - 2); ctx.rotate(-0.5);
+      ctx.save(); ctx.translate(x + tw - 6, top - 2); ctx.rotate(-0.5 + Math.sin(G.time * 3) * 0.05 + this.slosh * 0.6);
       ctx.beginPath(); ctx.arc(0, 0, 13, Math.PI, 0); ctx.closePath();
       ctx.fillStyle = '#ffe14a'; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = INK; ctx.stroke();
       ctx.beginPath(); ctx.arc(0, 0, 9, Math.PI, 0); ctx.closePath(); ctx.fillStyle = '#fff6b0'; ctx.fill();
+      ctx.strokeStyle = 'rgba(200,170,40,.8)'; ctx.lineWidth = 1.5; for (let i = 1; i < 4; i++) { const a = Math.PI + i * Math.PI / 4; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 8, Math.sin(a) * 8); ctx.stroke(); }
       ctx.restore();
     }
     // Face
     const ey = by - hh * (pint ? 0.5 : 0.52);
     const look = Math.atan2(this.aimY, Math.abs(this.aimX) + 0.01);
-    if (hurt) {
-      ctx.strokeStyle = INK; ctx.lineWidth = 3;
-      for (const ex of [x - 2, x + 15]) { ctx.beginPath(); ctx.moveTo(ex - 5, ey - 5); ctx.lineTo(ex + 5, ey + 5); ctx.moveTo(ex + 5, ey - 5); ctx.lineTo(ex - 5, ey + 5); ctx.stroke(); }
-      ellipse(ctx, x + 8, ey + 18, 6, 7, '#7a1c1c', 2.5);
+    const e1 = x - 2, e2 = x + 15;
+    ctx.strokeStyle = INK; ctx.lineCap = 'round';
+    if (expr === 'hurt') {
+      ellipse(ctx, e1, ey - 1, 8, 12, '#fff', 2.5); ellipse(ctx, e2, ey - 1, 8, 12, '#fff', 2.5);
+      circle(ctx, e1 + 1, ey, 2.5, INK, 0); circle(ctx, e2 + 1, ey, 2.5, INK, 0);
+      ellipse(ctx, x + 8, ey + 19, 6, 8, '#5a1010', 2.5);
+      ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(e1 - 6, ey - 17); ctx.lineTo(e1 + 5, ey - 14); ctx.moveTo(e2 + 6, ey - 17); ctx.lineTo(e2 - 5, ey - 14); ctx.stroke();
+    } else if (expr === 'happy') {
+      ctx.lineWidth = 3.5;
+      for (const ex of [e1, e2]) { ctx.beginPath(); ctx.arc(ex, ey + 3, 6, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+      circle(ctx, x + 22, ey + 9, 4.5, '#ff8f8f', 0);
+      ellipse(ctx, x + 9, ey + 9, 4, 3, '#c0392b', 2);
+      ctx.beginPath(); ctx.moveTo(x - 1, ey + 14); ctx.quadraticCurveTo(x + 9, ey + 30, x + 19, ey + 14); ctx.closePath(); ctx.fillStyle = '#7a1c1c'; ctx.fill(); ctx.lineWidth = 3; ctx.stroke();
     } else {
-      pieEye(ctx, x - 2, ey, 7, 10, look, blink);
-      pieEye(ctx, x + 15, ey, 7, 10, look, blink);
+      const blink = this.blink > 0;
+      const squint = expr === 'strain';
+      pieEye(ctx, e1, ey, 7, squint ? 6 : 10, look, blink);
+      pieEye(ctx, e2, ey, 7, squint ? 6 : 10, look, blink);
+      if (expr === 'focus' || squint) {
+        ctx.lineWidth = 3.5; ctx.beginPath();
+        ctx.moveTo(e1 - 7, ey - 14); ctx.lineTo(e1 + 5, ey - 9); ctx.moveTo(e2 + 7, ey - 14); ctx.lineTo(e2 - 5, ey - 9); ctx.stroke();
+      }
       circle(ctx, x + 22, ey + 10, 4, '#ff8f8f', 0);
       ellipse(ctx, x + 9, ey + 9, 4, 3, '#c0392b', 2);
-      mouth(ctx, x + 9, ey + 16, 8, this.fireCd > -0.1 ? 0.5 : 0.1);
+      if (squint) { ellipse(ctx, x + 9, ey + 20, 9, 7, '#5a1010', 3); }
+      else if (expr === 'focus') {
+        roundRect(ctx, x + 1, ey + 13, 16, 7, 3, '#fff', 2.5);
+        ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 9, ey + 13); ctx.lineTo(x + 9, ey + 20); ctx.stroke();
+      } else mouth(ctx, x + 9, ey + 16, 8, 0.15);
     }
   }
 

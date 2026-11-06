@@ -1,6 +1,6 @@
 // Boss 4 (flying stage): Captain Rumbeard and his airship, the Rum Runner.
 import { G, W, H, INK, PINK, clamp, rand, pick } from '../core.js';
-import { ellipse, circle, poly, hose, pieEye, glove, roundRect, text, starburst, mouth, FONT_TITLE } from '../draw.js';
+import { ellipse, circle, poly, hose, pieEye, glove, roundRect, text, starburst, mouth, FONT_TITLE, shadePath, blob } from '../draw.js';
 import { Boss } from './base.js';
 import { Proj, Enemy, drawPinkOrb } from '../entities.js';
 import { Plane } from '../plane.js';
@@ -36,7 +36,7 @@ export class Rum extends Boss {
     if (p === 1) { this.balloon = false; play('cork_pop', { rate: 0.5, volume: 1 }); w.popText(this.x - 100, 150, 'ABANDON SHIP... NOT!', '#ffb347', 36); this.baseY = 470; this.setAct('idle'); }
     if (p === 2) { this.rocket = true; play('boss_explode'); G.shake = 14; w.explode(this.x, this.y, 1.6); w.popText(640, 150, 'RUM ROCKET!', '#ff6a3d', 50); this.setAct('idle'); this.y = 300; }
   }
-  introUpdate(dt) { this.t += dt; this.y = this.baseY + Math.sin(this.t * 1.5) * 12; }
+  introUpdate(dt) { this.t += dt; const k = Math.max(0, 1 - this.t / 1.1); this.x = 1060 + k * k * 700; this.y = this.baseY + Math.sin(this.t * 1.5) * 12; }
 
   update(dt, w) {
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
@@ -121,7 +121,7 @@ export class Rum extends Boss {
     // Balloon
     if (this.balloon) {
       ctx.strokeStyle = INK; ctx.lineWidth = 3; for (const x of [-100, 0, 100]) { ctx.beginPath(); ctx.moveTo(x, -30); ctx.lineTo(x * 0.8, -160); ctx.stroke(); }
-      ellipse(ctx, 0, -240, 190, 100, '#c9762a', 5);
+      blob(ctx, 0, -240, 190, 100, '#c9762a', 5, 1.2);
       ctx.strokeStyle = 'rgba(0,0,0,.3)'; for (const x of [-120, -60, 0, 60, 120]) { ctx.beginPath(); ctx.ellipse(0, -240, Math.abs(x) + 5, 100, 0, 0, 7); ctx.stroke(); }
       roundRect(ctx, -40, -260, 80, 40, 8, '#f3e6c4', 3);
       text(ctx, 'RUM', 0, -240, 26, '#7a1c1c', 'center', FONT_TITLE, 0);
@@ -139,7 +139,7 @@ export class Rum extends Boss {
     ctx.fillStyle = '#e8732a'; ctx.beginPath(); ctx.moveTo(-26, cy - 10); ctx.quadraticCurveTo(0, cy + 40, 26, cy - 10); ctx.quadraticCurveTo(0, cy + 6, -26, cy - 10); ctx.fill(); ctx.lineWidth = 3; ctx.stroke();
     // Hull (a barrel boat)
     ctx.beginPath(); ctx.moveTo(-170, -20); ctx.lineTo(170, -20); ctx.quadraticCurveTo(160, 100, 100, 110); ctx.lineTo(-110, 110); ctx.quadraticCurveTo(-170, 90, -190, -10); ctx.closePath();
-    ctx.fillStyle = '#8a5a2a'; ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.fillStyle = '#8a5a2a'; ctx.fill(); shadePath(ctx, -20, 20, 200, 1.3); ctx.lineWidth = 5; ctx.strokeStyle = INK; ctx.stroke();
     ctx.strokeStyle = '#444'; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(-175, 20); ctx.lineTo(165, 20); ctx.moveTo(-150, 80); ctx.lineTo(140, 80); ctx.stroke();
     for (const [x, y] of [[-150, 40], [-150, 80]]) { roundRect(ctx, x - 26, y - 12, 34, 24, 6, '#333', 3); }
     // Skull & crossbones flag

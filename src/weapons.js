@@ -23,7 +23,7 @@ class Bullet {
   onHit(target, w) {
     if (this.pierce) this.hitMap.set(target, this.t);
     else this.dead = true;
-    w.spark(this.x, this.y, this.hitColor || '#fff8d0', this.ex ? 1.4 : 0.6);
+    if (this.ex) w.spark(this.x, this.y, this.hitColor || '#fff8d0', 1.4); else w.impact(this.x, this.y, this.hitColor || '#fff3c0');
   }
   draw() {}
 }

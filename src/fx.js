@@ -11,7 +11,7 @@ function makeGrain() {
     for (let i = 0; i < img.data.length; i += 4) {
       const v = Math.random() * 255;
       img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
-      img.data[i + 3] = Math.random() < 0.5 ? 26 : 0;
+      img.data[i + 3] = Math.random() < 0.5 ? 18 : 0;
     }
     g.putImageData(img, 0, 0);
     grainFrames.push(c);
@@ -38,7 +38,7 @@ export function drawFilm(ctx) {
   // Warm wash
   ctx.save();
   ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = 'rgba(255,236,200,0.12)';
+  ctx.fillStyle = 'rgba(255,236,200,0.08)';
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
   // Grain
@@ -109,3 +109,37 @@ export const iris = {
     ctx.restore();
   },
 };
+
+// ---------- Painterly treatment for backgrounds ----------
+let wcTex = null;
+export function watercolorTex() {
+  if (wcTex) return wcTex;
+  wcTex = document.createElement('canvas'); wcTex.width = W; wcTex.height = H;
+  const g = wcTex.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  // Soft pigment blooms
+  for (let i = 0; i < 260; i++) {
+    const x = rand(0, W), y = rand(0, H), r = rand(30, 180);
+    const grad = g.createRadialGradient(x, y, r * 0.2, x, y, r);
+    const tone = Math.random() < 0.5 ? '120,80,40' : '90,60,50';
+    const a = rand(0.025, 0.07);
+    grad.addColorStop(0, `rgba(${tone},${a})`); grad.addColorStop(0.7, `rgba(${tone},${a * 0.6})`); grad.addColorStop(1, `rgba(${tone},0)`);
+    g.fillStyle = grad; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  // Paper fibers
+  g.strokeStyle = 'rgba(90,60,30,.06)'; g.lineWidth = 1;
+  for (let i = 0; i < 900; i++) { const x = rand(0, W), y = rand(0, H), a = rand(0, 6.28), l = rand(4, 16); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+  // Baked inner edge darkening
+  const v = g.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, H * 0.9);
+  v.addColorStop(0, 'rgba(60,30,10,0)'); v.addColorStop(1, 'rgba(60,30,10,.22)');
+  g.fillStyle = v; g.fillRect(0, 0, W, H);
+  return wcTex;
+}
+export function paintify(c) {
+  const out = document.createElement('canvas'); out.width = c.width; out.height = c.height;
+  const g = out.getContext('2d');
+  g.filter = 'blur(0.9px) saturate(1.06)'; g.drawImage(c, 0, 0); g.filter = 'none';
+  g.globalCompositeOperation = 'multiply'; g.drawImage(watercolorTex(), 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  return out;
+}

@@ -1,6 +1,7 @@
+import { paintify } from '../fx.js';
 // Boss 1: Sir Hops-a-Lot, a boxing beer keg.
 import { G, W, H, INK, GROUND, clamp, rand, pick, wob } from '../core.js';
-import { ellipse, circle, poly, hose, pieEye, glove, shoe, roundRect, text, starburst, mouth, FONT_TITLE } from '../draw.js';
+import { ellipse, circle, poly, hose, pieEye, glove, shoe, roundRect, text, starburst, mouth, FONT_TITLE, shadePath, sbox, blob } from '../draw.js';
 import { Boss } from './base.js';
 import { Proj, Enemy, drawPinkOrb } from '../entities.js';
 import { play } from '../audio.js';
@@ -10,7 +11,7 @@ const HOME = 1050;
 export class Hops extends Boss {
   constructor(w) {
     super(w, { hp: 1500, phases: [0.66, 0.33], name: 'Sir Hops-a-Lot' });
-    this.x = HOME; this.y = GROUND; this.vx = 0; this.vy = 0;
+    this.x = HOME; this.y = GROUND - 900; this.vx = 0; this.vy = 0;
     this.glove = 0;      // haymaker extension 0..1
     this.punchY = 0;
     this.rolling = false; this.rot = 0;
@@ -57,7 +58,12 @@ export class Hops extends Boss {
     }
   }
 
-  introUpdate(dt) { this.t += dt; this.squash = 1 + Math.sin(this.t * 10) * 0.03; }
+  introUpdate(dt, w) {
+    this.t += dt;
+    // Drops in from the rafters and lands with a slam.
+    if (this.t < 0.45) { const k = this.t / 0.45; this.y = GROUND - (1 - k * k) * 900; }
+    else { if (!this.landed) { this.landed = true; this.squash = 0.6; G.shake = 18; play('slam'); w.puff(this.x - 110, GROUND, 60); w.puff(this.x + 110, GROUND, 60); w.debris(this.x, GROUND - 10, '#8a4e24', 8, 12); } this.y = GROUND; this.squash += (1 + Math.sin(this.t * 10) * 0.05 - this.squash) * Math.min(1, dt * 8); }
+  }
 
   update(dt, w) {
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
@@ -206,7 +212,7 @@ export class Hops extends Boss {
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 130, 16, 0, 0, 7); ctx.fill();
     ctx.scale(1 / Math.sqrt(this.squash), this.squash);
-    const bob = Math.sin(this.t * 9) * 3;
+    const bob = Math.sin(this.t * 9) * 6;
     // Legs
     hose(ctx, -45, -30, -50, -15, -60, -6, 10, INK);
     hose(ctx, 45, -30, 50, -15, 60, -6, 10, INK);
@@ -269,6 +275,7 @@ export class Hops extends Boss {
     ctx.bezierCurveTo(cx + w * 1.12, cy + h * 0.4, cx + w * 1.12, cy - h * 0.4, cx + w * 0.85, cy - h);
     ctx.closePath();
     ctx.fillStyle = this.red ? '#b8582c' : '#b06a32'; ctx.fill();
+    shadePath(ctx, cx - 20, cy - 20, 175, 1.3);
     ctx.save(); ctx.clip();
     ctx.strokeStyle = 'rgba(60,30,10,.5)'; ctx.lineWidth = 3;
     for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(cx + i * 34, cy - h); ctx.quadraticCurveTo(cx + i * 44, cy, cx + i * 34, cy + h); ctx.stroke(); }
@@ -411,7 +418,7 @@ function buildBg() {
   ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
   ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(20,10,0,.4)';
   for (let x = 0; x < W; x += 110) { ctx.beginPath(); ctx.moveTo(x, GROUND + 14); ctx.lineTo(x - 40, H); ctx.stroke(); }
-  return c;
+  return paintify(c);
 }
 
 export const hopsLevel = {

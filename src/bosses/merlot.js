@@ -1,6 +1,7 @@
+import { paintify } from '../fx.js';
 // Boss 2: Madame Merlot, the opera-singing wine bottle.
 import { G, W, H, INK, PINK, GROUND, clamp, rand, pick, wob } from '../core.js';
-import { ellipse, circle, poly, hose, pieEye, glove, roundRect, text, starburst, mouth, FONT_TITLE } from '../draw.js';
+import { ellipse, circle, poly, hose, pieEye, glove, roundRect, text, starburst, mouth, FONT_TITLE, shadePath } from '../draw.js';
 import { Boss } from './base.js';
 import { Proj, Enemy, drawPinkOrb } from '../entities.js';
 import { play } from '../audio.js';
@@ -13,6 +14,7 @@ export class Merlot extends Boss {
     this.sing = 0; this.corked = true;
     this.spirit = false; this.sx = 900; this.sy = 200; this.svx = 0; this.svy = 0;
     this.spinT = 0;
+    this.rise = 1;
   }
   bodyRect() {
     if (this.spirit) return { x: this.sx - 90, y: this.sy - 90, w: 180, h: 180 };
@@ -39,7 +41,7 @@ export class Merlot extends Boss {
       w.debris(this.x, this.y - 250, '#3d6b35', 16, 26);
     }
   }
-  introUpdate(dt) { this.t += dt; this.sing = Math.max(0, Math.sin(this.t * 4)); }
+  introUpdate(dt, w) { this.t += dt; this.sing = Math.max(0, Math.sin(this.t * 4)); this.rise = Math.max(0, 1 - this.t / 0.9); if (this.t > 0.9 && !this.risen) { this.risen = true; play('bell'); w.puff(this.x - 80, GROUND, 50); w.puff(this.x + 80, GROUND, 50); } }
 
   update(dt, w) {
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
@@ -183,7 +185,8 @@ export class Merlot extends Boss {
     if (this.spirit) return this.drawSpirit(ctx);
     ctx.save();
     const shake = this.dying ? Math.sin(this.t * 80) * 5 : this.hitT > 0 ? 2 : 0;
-    ctx.translate(this.x + shake, this.y);
+    if (this.rise > 0) { ctx.beginPath(); ctx.rect(0, -1000, W, 1000 + GROUND); ctx.clip(); }
+    ctx.translate(this.x + shake, this.y + (this.rise || 0) * (this.rise || 0) * 520);
     const sway = Math.sin(this.t * 2) * 0.03 + (this.act === 'shatter' ? Math.sin(this.t * 60) * 0.03 : 0);
     ctx.rotate(sway);
     ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 110, 16, 0, 0, 7); ctx.fill();
@@ -196,7 +199,9 @@ export class Merlot extends Boss {
     ctx.save(); ctx.clip();
     ctx.fillStyle = '#6e1430'; ctx.fillRect(-100, -290 + Math.sin(this.t * 3) * 4, 200, 300);
     ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(-70, -440, 22, 440);
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-60, -430, 8, 300);
     ctx.restore();
+    shadePath(ctx, -10, -250, 280, 1.2);
     ctx.lineWidth = 5; ctx.strokeStyle = INK; ctx.stroke();
     // Foil + cork / hat
     if (this.corked) roundRect(ctx, -30, -490, 60, 46, 8, '#c08a4a', 4);
@@ -385,7 +390,7 @@ function buildBg() {
   ctx.fillStyle = '#9a6030'; ctx.fillRect(0, GROUND, W, 12);
   ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
   for (let x = 40; x < W; x += 120) { ctx.fillStyle = '#ffe680'; ctx.beginPath(); ctx.arc(x, GROUND + 50, 14, Math.PI, 0); ctx.fill(); ctx.stroke(); }
-  return c;
+  return paintify(c);
 }
 
 export const merlotLevel = {

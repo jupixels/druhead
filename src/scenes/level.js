@@ -18,11 +18,11 @@ export class LevelScene {
     this.pauseMenu = new Menu([
       { label: 'Resume', action: () => (this.paused = false) },
       { label: 'Retry', action: () => this.retry() },
-      { label: 'Exit to Map', action: () => this.exit() },
+      { label: 'Exit to Map', action: () => this.leave() },
     ], { back: () => (this.paused = false) });
     this.loseMenu = new Menu([
       { label: 'Retry', action: () => this.retry() },
-      { label: 'Exit to Map', action: () => this.exit() },
+      { label: 'Exit to Map', action: () => this.leave() },
     ]);
     this.done = false;
   }
@@ -32,7 +32,7 @@ export class LevelScene {
   }
   enter() { playMusic(this.def.music); }
   retry() { iris.close(() => { this.start(); this.paused = false; this.loseMenu.i = 0; }); }
-  exit() { iris.close(() => nav.map()); }
+  leave() { iris.close(() => nav.map()); }
 
   update(dt) {
     if (iris.busy()) { return; }

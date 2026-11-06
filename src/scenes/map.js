@@ -101,7 +101,6 @@ export class MapScene {
       if (Math.abs(a.x - b.x) > W - 200) { const m = (a.x + b.x) / 2; a.x = clamp(a.x, m - (W - 200) / 2, m + (W - 200) / 2); b.x = clamp(b.x, m - (W - 200) / 2, m + (W - 200) / 2); }
       if (Math.abs(a.y - b.y) > H - 200) { const m = (a.y + b.y) / 2; a.y = clamp(a.y, m - (H - 200) / 2, m + (H - 200) / 2); b.y = clamp(b.y, m - (H - 200) / 2, m + (H - 200) / 2); }
     }
-    if (moving) { this.stepT -= dt; if (this.stepT <= 0) { this.stepT = 0.28; play('step', { vary: 0.2 }); } }
     const lead = this.tokens[0];
     const cx = this.tokens.reduce((a, p) => a + p.x, 0) / this.tokens.length, cy = this.tokens.reduce((a, p) => a + p.y, 0) / this.tokens.length;
     this.cam.x += (clamp(cx - W / 2, 0, MW - W) - this.cam.x) * Math.min(1, dt * 5);

@@ -4,8 +4,32 @@ import { circle, ellipse, starburst, text, card, roundRect, FONT_UI, FONT_TITLE 
 import { Player, METER_MAX } from './player.js';
 import { players as INPUTS } from './input.js';
 import { play } from './audio.js';
+import { watercolorTex } from './fx.js';
 
 export const DIFFS = ['Light', 'Regular', 'Top Shelf'];
+const MUZZLE = { beer: '#fff3c0', whiskey: '#ffcf7a', wine: '#e0b0ff', champ: '#f0ffd0', tequila: '#d8ff9a', vodka: '#d8f4ff' };
+
+// Draw something with a white "hit flash" tint (rendered through an offscreen layer).
+let layer = null;
+export function drawFlashed(ctx, fn, amount) {
+  const c = ctx.canvas;
+  if (!layer || layer.width !== c.width) { layer = document.createElement('canvas'); layer.width = c.width; layer.height = c.height; }
+  const l = layer.getContext('2d');
+  l.setTransform(1, 0, 0, 1, 0, 0); l.globalCompositeOperation = 'source-over'; l.globalAlpha = 1;
+  l.clearRect(0, 0, layer.width, layer.height);
+  l.setTransform(ctx.getTransform());
+  fn(l);
+  l.setTransform(1, 0, 0, 1, 0, 0);
+  l.globalCompositeOperation = 'source-atop';
+  l.fillStyle = `rgba(255,255,240,${amount})`; l.fillRect(0, 0, layer.width, layer.height);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(layer, 0, 0); ctx.restore();
+}
+export function rumble(strength = 0.5, ms = 150, idx = -1) {
+  try {
+    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+    pads.forEach((p, i) => { if ((idx < 0 || i === idx) && p.vibrationActuator) p.vibrationActuator.playEffect('dual-rumble', { duration: ms, strongMagnitude: strength, weakMagnitude: strength * 0.6 }); });
+  } catch (_) {}
+}
 
 export class World {
   constructor(def, opts) {
@@ -80,7 +104,18 @@ export class World {
   // ---------- Effects ----------
   puff(x, y, r, color = '#fff') { this.fx.push({ k: 'puff', x, y, r, color, t: 0, life: 0.35 }); }
   spark(x, y, color = '#fff', s = 1) { this.fx.push({ k: 'spark', x, y, color, s, t: 0, life: 0.14, rot: rand(0, 6) }); }
-  muzzle(x, y) { this.fx.push({ k: 'spark', x, y, color: '#fff6d0', s: 0.45, t: 0, life: 0.05, rot: rand(0, 6) }); }
+  muzzle(x, y, weapon) {
+    const col = MUZZLE[weapon] || '#fff6d0';
+    this.fx.push({ k: 'spark', x, y, color: col, s: 0.55, t: 0, life: 0.06, rot: rand(0, 6) });
+    if (Math.random() < 0.35) this.fx.push({ k: 'ring', x, y, t: 0, life: 0.12, color: col, r0: 6, r1: 26 });
+  }
+  dust(x, y) {
+    for (let i = 0; i < 2; i++) this.fx.push({ k: 'dust', x: x + rand(-6, 6), y: y - 4, vx: rand(-40, 40), vy: rand(-60, -20), r: rand(6, 11), t: 0, life: rand(0.3, 0.45) });
+  }
+  impact(x, y, color) {
+    this.fx.push({ k: 'spark', x, y, color, s: 0.7, t: 0, life: 0.1, rot: rand(0, 6) });
+    for (let i = 0; i < 3; i++) this.fx.push({ k: 'drop', x, y, vx: rand(-260, 260), vy: rand(-380, -60), color, r: rand(3, 6), t: 0, life: 0.4 });
+  }
   speedLine(x, y, dir) { this.fx.push({ k: 'line', x, y, dir, t: 0, life: 0.18 }); }
   popText(x, y, str, color = '#fff', size = 30) { this.fx.push({ k: 'text', x, y, str, color, size, t: 0, life: 1 }); }
   debris(x, y, color, n = 6, size = 10) {
@@ -119,12 +154,18 @@ export class World {
   bossDefeated() {
     if (this.state !== 'play') return;
     this.state = 'ko'; this.stateT = 0;
+    for (const b of this.eBullets) this.puff(b.x, b.y, 20, '#fff');
     this.eBullets.length = 0;
-    for (const e of this.enemies) if (!e.keepOnKo) { e.dead = true; }
-    play('announcer_ko');
+    for (const e of this.enemies) if (!e.keepOnKo) { e.dead = true; this.popEnemy(e); }
+    this.koFx();
     play('bell');
   }
-  win() { if (this.state === 'play') { this.state = 'ko'; this.stateT = 0; play('announcer_ko'); } }
+  koFx() {
+    G.hitstop = 0.35; this.flash = 0.5; G.shake = 22;
+    play('announcer_ko'); rumble(0.9, 400);
+    for (const p of this.players) if (!p.dead) p.victoryT = 0;
+  }
+  win() { if (this.state === 'play') { this.state = 'ko'; this.stateT = 0; this.eBullets = this.eBullets.filter((b) => b.harmless); this.koFx(); } }
   lose() {
     if (this.state !== 'play') return;
     this.state = 'lose'; this.stateT = 0;
@@ -141,7 +182,12 @@ export class World {
     this.stateT += dt;
     this.flash = Math.max(0, this.flash - dt);
     if (this.state === 'intro') {
-      for (const p of this.players) { if (p.isPlane) { p.prop += dt * 40; continue; } p.vx = 0; p.vy += 2700 * dt; p.move(dt, this); p.computeMuzzle && p.computeMuzzle(); }
+      for (const p of this.players) {
+        if (p.isPlane) { p.prop += dt * 40; p.y += Math.sin(this.t * 3 + p.idx) * 0.5; continue; }
+        p.vx = 0; p.vy += 2700 * dt; p.move(dt, this); p.computeMuzzle && p.computeMuzzle();
+        p.anim += dt; p.animate(dt, this); p.introT = this.stateT > 0.55 ? this.stateT - 0.55 : -1;
+      }
+      if (this.stateT > 2.2) for (const p of this.players) p.introT = -1;
       if (this.boss) this.boss.introUpdate ? this.boss.introUpdate(dt, this) : null;
       if (this.stateT > 2.2) { this.state = 'play'; this.stateT = 0; }
       if (this.stateT > 0.5 && this.stateT - dt <= 0.5) play('announcer_start');
@@ -153,7 +199,7 @@ export class World {
       dt *= this.stateT < 1.6 ? 0.3 : 1;
       if (this.boss) this.boss.deathUpdate ? this.boss.deathUpdate(dt, this) : null;
       this.updateFx(dt);
-      for (const p of this.players) if (!p.dead && !p.isPlane) { p.vx = 0; p.vy += 2700 * dt; p.move(dt, this); }
+      for (const p of this.players) if (!p.dead && !p.isPlane) { p.vx = 0; p.vy += 2700 * dt; p.move(dt, this); p.anim += dt; p.animate(dt, this); if (p.victoryT >= 0) p.victoryT += dt; }
       return;
     }
     this.stats.time += dt;
@@ -230,12 +276,16 @@ export class World {
   draw(ctx) {
     ctx.save();
     if (this.def.drawBg) this.def.drawBg(ctx, this);
+    if (this.type === 'run' || this.type === 'plane') { ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(watercolorTex(), 0, 0); ctx.restore(); }
     ctx.save();
     ctx.translate(-Math.round(this.camX), -Math.round(this.camY));
     if (this.def.drawMid) this.def.drawMid(ctx, this);
     for (const p of this.platforms) if (p.draw) p.draw(ctx, p, this); else if (this.def.drawPlatform) this.def.drawPlatform(ctx, p, this);
     for (const k of this.pickups) k.draw(ctx, this);
-    if (this.boss) this.boss.draw(ctx, this);
+    if (this.boss) {
+      if (this.boss.hitT > 0.02 && !this.boss.dying) drawFlashed(ctx, (c) => this.boss.draw(c, this), 0.42);
+      else this.boss.draw(ctx, this);
+    }
     for (const e of this.enemies) e.draw(ctx, this);
     for (const p of this.players) if (!p.dead) p.draw(ctx);
     for (const b of this.pBullets) b.draw(ctx);
@@ -273,7 +323,15 @@ export class World {
         ctx.restore();
       } else if (f.k === 'ring') {
         ctx.strokeStyle = f.color; ctx.lineWidth = 6 * (1 - k);
-        ctx.beginPath(); ctx.arc(f.x, f.y, 20 + k * 80, 0, 7); ctx.stroke();
+        ctx.beginPath(); ctx.arc(f.x, f.y, (f.r0 ?? 20) + k * ((f.r1 ?? 100) - (f.r0 ?? 20)), 0, 7); ctx.stroke();
+      } else if (f.k === 'dust') {
+        ctx.globalAlpha = (1 - k) * 0.9;
+        circle(ctx, f.x + f.vx * f.t, f.y + f.vy * f.t, f.r * (0.6 + k * 0.8), '#efe3c0', 2);
+        ctx.globalAlpha = 1;
+      } else if (f.k === 'drop') {
+        ctx.globalAlpha = 1 - k;
+        circle(ctx, f.x + f.vx * f.t, f.y + f.vy * f.t + 900 * f.t * f.t, f.r * (1 - k * 0.5), f.color, 2);
+        ctx.globalAlpha = 1;
       } else if (f.k === 'boom') {
         starburst(ctx, f.x, f.y, 70 * f.s * (0.6 + k), 9, k < 0.3 ? '#fff6c0' : '#ffb347', f.rot, 4);
         circle(ctx, f.x, f.y, 30 * f.s * (1 - k), '#fff', 0);
@@ -305,19 +363,27 @@ export class World {
   drawOverlay(ctx) {
     if (this.state === 'intro') {
       const t = this.stateT;
-      if (t > 0.4 && t < 2.2) {
-        const s = t < 0.6 ? 0.6 + (t - 0.4) * 2 : 1;
-        ctx.save(); ctx.translate(W / 2, H / 2 - 40); ctx.scale(s, s); ctx.rotate(-0.05);
-        text(ctx, this.introText, 0, 0, 92, '#ffe39a', 'center', FONT_TITLE, 12);
+      if (t > 0.4 && t < 2.25) {
+        const out = t > 1.95 ? (t - 1.95) / 0.3 : 0;
+        ctx.save(); ctx.translate(W / 2, H / 2 - 50); ctx.rotate(-0.04);
+        ctx.globalAlpha = 1 - out;
+        bounceWord(ctx, this.introText, t - 0.4, 96, '#ffe39a', out);
         ctx.restore();
-        if (this.def.introSub) text(ctx, this.def.introSub, W / 2, H / 2 + 40, 26, '#fff', 'center', FONT_UI, 6);
+        if (this.def.introSub && t > 0.8) { ctx.globalAlpha = Math.min(1, (t - 0.8) * 4) * (1 - out); text(ctx, this.def.introSub, W / 2, H / 2 + 45, 26, '#fff', 'center', FONT_UI, 6); ctx.globalAlpha = 1; }
       }
     }
-    if (this.state === 'ko' && this.stateT < 2.6) {
+    if (this.state === 'ko' && this.stateT < 2.8) {
       const t = this.stateT;
-      const s = Math.min(1, t * 4);
-      ctx.save(); ctx.translate(W / 2, H / 2 - 30); ctx.scale(s, s); ctx.rotate(0.04);
-      text(ctx, this.def.winText || 'LAST CALL!', 0, 0, 120, '#ffe39a', 'center', FONT_TITLE, 14);
+      const out = t > 2.4 ? (t - 2.4) / 0.4 : 0;
+      ctx.save();
+      // Sunburst rays behind the knockout text
+      ctx.globalAlpha = Math.min(0.55, t * 2) * (1 - out);
+      ctx.translate(W / 2, H / 2 - 30);
+      ctx.rotate(G.time * 0.4);
+      for (let i = 0; i < 16; i++) { ctx.fillStyle = i % 2 ? 'rgba(255,240,180,.8)' : 'rgba(255,200,90,.5)'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 900, (i / 16) * 6.283, ((i + 1) / 16) * 6.283); ctx.fill(); }
+      ctx.restore();
+      ctx.save(); ctx.translate(W / 2, H / 2 - 30); ctx.rotate(0.05); ctx.globalAlpha = 1 - out;
+      bounceWord(ctx, this.def.winText || 'LAST CALL!', t, 124, '#ffe39a', 0, 0.035);
       ctx.restore();
     }
     if (this.state === 'lose' && this.stateT > 1.0) this.drawDeathCard(ctx);
@@ -350,3 +416,24 @@ export class World {
 
 // Kept for convenience in level files.
 export { GROUND };
+
+// Letters drop in one by one with a squashy bounce.
+function bounceWord(ctx, word, t, size, color, out = 0, stagger = 0.045) {
+  ctx.font = `${size}px ${FONT_TITLE}`;
+  const total = ctx.measureText(word).width;
+  let x = -total / 2;
+  for (let i = 0; i < word.length; i++) {
+    const ch = word[i], cw = ctx.measureText(ch).width;
+    const lt = t - i * stagger;
+    if (lt > 0) {
+      const k = Math.min(1, lt / 0.22);
+      const y = -(1 - k) * 160 + (k >= 1 ? Math.sin(Math.min(1, (lt - 0.22) / 0.25) * Math.PI) * -14 : 0) + Math.sin(G.time * 6 + i) * 2;
+      const sq = k >= 1 && lt < 0.35 ? 0.8 : 1;
+      ctx.save(); ctx.translate(x + cw / 2, y + out * 60); ctx.scale(1 / sq, sq); ctx.rotate(Math.sin(i * 1.7) * 0.05);
+      text(ctx, ch, 4, 8, size, '#3b0d06', 'center', FONT_TITLE, 0);
+      text(ctx, ch, 0, 0, size, color, 'center', FONT_TITLE, 12);
+      ctx.restore();
+    }
+    x += cw;
+  }
+}

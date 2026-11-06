@@ -32,11 +32,11 @@ export class Boss {
     if (this.invulnerable || this.dying) return;
     this.hp -= d;
     this.hitT = 0.06;
-    play('boss_hit', { cooldown: 0.07, vary: 0.15 });
+    play('boss_hit', { cooldown: 0.11, vary: 0.15 });
     const frac = this.hp / this.maxHp;
     while (this.phase < this.phases.length && frac <= this.phases[this.phase]) {
       this.phase++;
-      if (frac > this.endFrac || this.endFrac === 0) this.onPhase && this.onPhase(this.phase, w);
+      if (frac > this.endFrac) this.onPhase && this.onPhase(this.phase, w);
     }
     if (frac <= this.endFrac) this.die(w);
   }

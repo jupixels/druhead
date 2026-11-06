@@ -1,6 +1,7 @@
+import { paintify } from '../fx.js';
 // Boss 5: The Mixologist, a dapper cocktail shaker.
 import { G, W, H, INK, PINK, GROUND, clamp, rand, pick } from '../core.js';
-import { ellipse, circle, poly, hose, pieEye, glove, shoe, roundRect, text, starburst, mouth, FONT_TITLE } from '../draw.js';
+import { ellipse, circle, poly, hose, pieEye, glove, shoe, roundRect, text, starburst, mouth, FONT_TITLE, shadePath } from '../draw.js';
 import { Boss } from './base.js';
 import { Proj, Enemy, drawPinkOrb, drawCherry } from '../entities.js';
 import { play } from '../audio.js';
@@ -20,7 +21,7 @@ export class Mix extends Boss {
     if (p === 1) { w.popText(this.x - 80, 200, 'STIRRED, NOT SHAKEN!', '#ff9ccc', 36); play('bell'); this.setAct('idle'); this.idleFor = 0.5; }
     if (p === 2) { w.popText(640, 200, 'ON THE ROCKS!', '#9fd8ff', 50); play('ice'); this.setAct('spinup'); }
   }
-  introUpdate(dt) { this.t += dt; this.shake = Math.sin(this.t * 30) * 0.5; }
+  introUpdate(dt, w) { this.t += dt; const k = Math.max(0, 1 - this.t / 0.7); this.x = 1060 + k * k * 520; this.shake = this.t > 0.7 && this.t < 1.4 ? 1.5 : 0; if (this.t > 0.7 && !this.arrived) { this.arrived = true; play('ice'); w.puff(this.x + 60, GROUND, 40); } }
 
   update(dt, w) {
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
@@ -115,6 +116,7 @@ export class Mix extends Boss {
     shoe(ctx, -30, 0, -1, '#111', 1.4); shoe(ctx, 30, 0, -1, '#111', 1.4);
     // Shaker body (steel)
     poly(ctx, [[-70, -60], [70, -60], [60, -300], [-60, -300]], '#c9cdd6', 5);
+    ctx.beginPath(); ctx.moveTo(-70, -60); ctx.lineTo(70, -60); ctx.lineTo(60, -300); ctx.lineTo(-60, -300); ctx.closePath(); shadePath(ctx, -20, -200, 200, 1.4);
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(-48, -290, 16, 220);
     // Tux vest
     poly(ctx, [[-66, -70], [66, -70], [58, -210], [0, -160], [-58, -210]], '#2a2a3a', 4);
@@ -208,7 +210,7 @@ function buildBg() {
   // Floor (checkerboard)
   for (let x = 0; x < W; x += 64) for (let y = GROUND; y < H; y += 32) { ctx.fillStyle = ((x / 64 + (y - GROUND) / 32) % 2) ? '#e8dcc0' : '#2a2438'; ctx.fillRect(x, y, 64, 32); }
   ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
-  return c;
+  return paintify(c);
 }
 
 export const mixLevel = {

@@ -1,6 +1,7 @@
+import { paintify } from '../fx.js';
 // Boss 3: The Agave Brothers, two cactus luchadores (Blanco and Reposado).
 import { G, W, H, INK, PINK, GROUND, clamp, rand, pick } from '../core.js';
-import { ellipse, circle, poly, hose, pieEye, glove, shoe, roundRect, text, starburst, FONT_TITLE } from '../draw.js';
+import { ellipse, circle, poly, hose, pieEye, glove, shoe, roundRect, text, starburst, FONT_TITLE, sbox, blob } from '../draw.js';
 import { Boss } from './base.js';
 import { Proj, Enemy, drawPinkOrb } from '../entities.js';
 import { play } from '../audio.js';
@@ -44,7 +45,14 @@ export class Agave extends Boss {
     if (p === 1) { this.setAct('tag'); w.popText(640, 200, 'TAG TEAM!', '#ffb347', 50); play('bell'); play('roar'); }
     if (p === 2) { this.setAct('fuse'); w.popText(640, 200, 'EL GIGANTE!', '#ff6a3d', 56); play('roar', { rate: 0.7 }); G.shake = 12; }
   }
-  introUpdate(dt) { this.t += dt; }
+  introUpdate(dt, w) {
+    this.t += dt;
+    // Blanco leaps in over the top rope.
+    const B = this.blanco, k = Math.min(1, this.t / 0.8);
+    B.x = 1400 + (900 - 1400) * k; B.y = GROUND - Math.sin(k * Math.PI) * 420; B.ball = k < 1; B.rot -= dt * 12;
+    if (k >= 1 && !this.landed) { this.landed = true; B.y = GROUND; B.squash = 0.6; G.shake = 12; play('slam'); w.puff(B.x, GROUND, 60); }
+    if (k >= 1) B.squash += (1 - B.squash) * Math.min(1, dt * 8);
+  }
 
   update(dt, w) {
     this.t += dt; this.actT += dt; this.hitT = Math.max(0, this.hitT - dt);
@@ -165,7 +173,7 @@ export class Agave extends Boss {
     if (b.ball) {
       ctx.translate(0, -55); ctx.rotate(b.rot);
       for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 50, Math.sin(a) * 50); ctx.lineTo(Math.cos(a) * 68, Math.sin(a) * 68); ctx.stroke(); }
-      circle(ctx, 0, 0, 55, b.color, 4);
+      blob(ctx, 0, 0, 55, 55, b.color, 4, 1.2);
       ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 3; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.ellipse(i * 20, 0, 6, 48, 0, 0, 7); ctx.stroke(); }
       roundRect(ctx, -30, -20, 60, 30, 10, b.mask, 3);
       ctx.restore(); return;
@@ -178,15 +186,15 @@ export class Agave extends Boss {
     hose(ctx, 20, -40, 24, -20, 28, -8, 12, '#d63a2a');
     shoe(ctx, -28, 0, -1, '#d63a2a', 1.2); shoe(ctx, 28, 0, -1, '#d63a2a', 1.2);
     // Body (cactus) with trunks
-    roundRect(ctx, -50, -190, 100, 160, 45, b.color, 4);
+    sbox(ctx, -50, -190, 100, 160, 45, b.color, 4, 1.2);
     ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 3; for (const x of [-25, 0, 25]) { ctx.beginPath(); ctx.moveTo(x, -180); ctx.lineTo(x, -40); ctx.stroke(); }
     ctx.strokeStyle = '#f3e6c4'; ctx.lineWidth = 2; for (let i = 0; i < 10; i++) { const x = -40 + (i * 23) % 80, y = -170 + (i * 37) % 120; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 6, y - 4); ctx.stroke(); }
     roundRect(ctx, -52, -70, 104, 40, 10, '#2b4f8f', 4);
     roundRect(ctx, -18, -66, 36, 30, 6, '#ffd84a', 3);
     // Arms
     const flex = Math.sin(this.t * 6 + b.x) * 6;
-    roundRect(ctx, -90, -170 + flex, 34, 70, 17, b.color, 4);
-    roundRect(ctx, 56, -170 - flex, 34, 70, 17, b.color, 4);
+    sbox(ctx, -90, -170 + flex, 34, 70, 17, b.color, 4);
+    sbox(ctx, 56, -170 - flex, 34, 70, 17, b.color, 4);
     // Luchador mask
     ellipse(ctx, 0, -150, 44, 34, b.mask, 4);
     poly(ctx, [[-40, -168], [0, -150], [40, -168], [30, -180], [0, -166], [-30, -180]], '#d63a2a', 2.5);
@@ -203,7 +211,7 @@ export class Agave extends Boss {
     const shake = this.dying ? Math.sin(this.t * 80) * 5 : this.hitT > 0 ? 2 : 0;
     ctx.save(); ctx.translate(this.gx + shake, GROUND);
     ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0, 0, 130, 18, 0, 0, 7); ctx.fill();
-    roundRect(ctx, -100, -470, 200, 460, 90, '#5a9a3a', 5);
+    sbox(ctx, -100, -470, 200, 460, 90, '#5a9a3a', 5, 1.3);
     ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 3; for (const x of [-50, 0, 50]) { ctx.beginPath(); ctx.moveTo(x, -450); ctx.lineTo(x, -30); ctx.stroke(); }
     // Two masks stacked
     for (const [y, m] of [[-370, '#d9a93a'], [-200, '#e8e8f0']]) {
@@ -291,7 +299,7 @@ function buildBg() {
   ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
   // Posts
   for (const x of [20, POST_X + 60]) { roundRect(ctx, x - 14, GROUND - 260, 28, 260, 6, '#ddd', 4); roundRect(ctx, x - 20, GROUND - 270, 40, 26, 6, '#d63a2a', 4); }
-  return c;
+  return paintify(c);
 }
 
 export const agaveLevel = {

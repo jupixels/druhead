@@ -1,3 +1,4 @@
+import { paintify } from './fx.js';
 // The Bar Fight: a parry-only challenge. Protect the tip jar from rowdy spirits.
 import { G, W, H, INK, PINK, GROUND, clamp, rand, pick } from './core.js';
 import { ellipse, circle, poly, roundRect, text, pieEye, mouth, FONT_TITLE, FONT_UI } from './draw.js';
@@ -47,7 +48,7 @@ function buildBg() {
   ellipse(ctx, 120, GROUND - 40, 90, 30, '#7a4a20', 4); ellipse(ctx, 1160, GROUND - 40, 90, 30, '#7a4a20', 4);
   ctx.fillStyle = '#5a3218'; ctx.fillRect(0, GROUND, W, H - GROUND);
   ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
-  return c;
+  return paintify(c);
 }
 
 export const barfightLevel = {
