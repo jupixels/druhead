@@ -1,6 +1,6 @@
 // Level runtime: players, bullets, boss/enemies, collisions, particles, HUD.
 import { G, W, H, INK, PINK, GROUND, clamp, rand, pick } from './core.js';
-import { circle, ellipse, starburst, text, card, roundRect, FONT_UI, FONT_TITLE } from './draw.js';
+import { circle, ellipse, starburst, text, card, roundRect, panel, FONT_UI, FONT_TITLE } from './draw.js';
 import { Player, METER_MAX } from './player.js';
 import { players as INPUTS } from './input.js';
 import { play } from './audio.js';
@@ -203,6 +203,7 @@ export class World {
       return;
     }
     this.stats.time += dt;
+    if (!this.players.some((p) => !p.dead)) { this.lose(); return; }
     for (const p of this.players) p.update(dt, this, INPUTS[p.idx]);
     if (this.def.update) this.def.update(dt, this);
     if (this.boss && !this.boss.dead) this.boss.update(dt, this);
@@ -343,19 +344,29 @@ export class World {
     if (this.def.hideHud) return;
     this.players.forEach((p, i) => {
       const left = i === 0;
-      const x = left ? 24 : W - 24 - 230, y = H - 56;
-      // HP card
+      const x = left ? 26 : W - 26 - 210, y = H - 62;
+      // HP card (tilted playing card, flashes red at 1 HP)
       const low = p.hp === 1 && !p.dead;
-      const col = p.dead ? '#555' : low ? (Math.floor(G.time * 6) % 2 ? '#e04040' : '#fff') : '#f3e6c4';
-      roundRect(ctx, x, y, 78, 38, 5, col, 3);
-      text(ctx, p.dead ? 'DEAD' : `HP ${p.hp}`, x + 39, y + 20, 22, p.dead ? '#bbb' : INK, 'center', FONT_UI, 0);
-      // Meter cards
+      p.hudHp = p.hudHp ?? p.hp; if (p.hudHp !== p.hp) { p.hudShake = 0.4; p.hudHp = p.hp; }
+      p.hudShake = Math.max(0, (p.hudShake || 0) - 1 / 60);
+      ctx.save(); ctx.translate(x + 38 + Math.sin(G.time * 60) * p.hudShake * 8, y + 22); ctx.rotate(-0.06);
+      const col = p.dead ? '#666' : low ? (Math.floor(G.time * 5) % 2 ? '#e8453a' : '#fff4e0') : '#fff4e0';
+      roundRect(ctx, -38, -22, 76, 44, 6, col, 3.5);
+      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1.5; ctx.strokeRect(-33, -17, 66, 34);
+      text(ctx, p.dead ? 'DEAD' : `HP. ${p.hp}`, 0, 2, 24, p.dead ? '#ddd' : low ? INK : '#7a1c1c', 'center', FONT_TITLE, 0);
+      ctx.restore();
+      // Super meter cards
+      p.cardFlip = p.cardFlip || [1, 1, 1, 1, 1];
+      p.cardFull = p.cardFull || [false, false, false, false, false];
       for (let c = 0; c < 5; c++) {
         const f = clamp((p.meter - c * 100) / 100, 0, 1);
-        card(ctx, x + 88 + c * 22, y + 6, f, p.meter >= METER_MAX);
+        const full = f >= 1;
+        if (full !== p.cardFull[c]) { p.cardFull[c] = full; p.cardFlip[c] = -1; }
+        p.cardFlip[c] = Math.min(1, p.cardFlip[c] + 1 / 60 * 7);
+        card(ctx, x + 88 + c * 24, y + 7 - (full && p.meter >= METER_MAX ? Math.abs(Math.sin(G.time * 8 + c)) * 4 : 0), f, p.meter >= METER_MAX, p.cardFlip[c]);
       }
-      if (p.weapon) text(ctx, p.weapon.name, x + 2, y - 14, 16, '#fff', 'left', FONT_UI, 4);
-      if (this.coop) text(ctx, p.char.name.toUpperCase(), x + 2, y - 34, 15, i ? '#d6b2ff' : '#9fe0a8', 'left', FONT_UI, 4);
+      if (p.weapon) text(ctx, p.weapon.name.toUpperCase(), x + 4, y - 12, 15, '#fff6d8', 'left', FONT_UI, 4);
+      if (this.coop) text(ctx, p.char.name.toUpperCase(), x + 4, y - 32, 15, i ? '#d6b2ff' : '#9fe0a8', 'left', FONT_UI, 4);
     });
     if (this.def.hud) this.def.hud(ctx, this);
   }
@@ -391,26 +402,30 @@ export class World {
 
   drawDeathCard(ctx) {
     const a = clamp((this.stateT - 1) * 3, 0, 1);
-    ctx.fillStyle = `rgba(0,0,0,${0.45 * a})`; ctx.fillRect(0, 0, W, H);
-    ctx.save(); ctx.globalAlpha = a;
-    const x = W / 2 - 300, y = 150;
-    roundRect(ctx, x, y, 600, 400, 14, '#f3e6c4', 6);
-    text(ctx, pick(['YOU\'RE CUT OFF!']), W / 2, y + 60, 54, '#c0392b', 'center', FONT_TITLE, 6);
-    text(ctx, `"${this.def.taunt || 'Come back when you can hold your liquor!'}"`, W / 2, y + 120, 22, INK, 'center', FONT_UI, 0);
-    // Progress bar
-    const bx = x + 60, by = y + 175, bw = 480;
-    ctx.strokeStyle = INK; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + bw, by); ctx.stroke();
+    ctx.fillStyle = `rgba(20,8,0,${0.55 * a})`; ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    const drop = (1 - a) * -400;
+    ctx.translate(W / 2, 330 + drop); ctx.rotate(-0.03 + Math.sin(this.stateT * 2) * 0.004);
+    panel(ctx, -320, -210, 640, 390);
+    text(ctx, "YOU'RE CUT OFF!", 0, -150, 58, '#c0392b', 'center', FONT_TITLE, 6);
+    text(ctx, `"${this.def.taunt || 'Come back when you can hold your liquor!'}"`, 0, -92, 22, INK, 'center', FONT_UI, 0);
+    // Progress track like an old film strip
+    const bx = -240, by = -20, bw = 480;
+    ctx.fillStyle = INK; ctx.fillRect(bx - 10, by - 16, bw + 20, 32);
+    ctx.fillStyle = '#f3e6c4'; for (let x = bx; x < bx + bw; x += 20) { ctx.fillRect(x, by - 12, 10, 5); ctx.fillRect(x, by + 7, 10, 5); }
     const marks = this.def.phaseMarks || [];
-    for (const m of marks) { ctx.beginPath(); ctx.moveTo(bx + bw * m, by - 12); ctx.lineTo(bx + bw * m, by + 12); ctx.stroke(); }
-    ctx.beginPath(); ctx.moveTo(bx + bw, by - 18); ctx.lineTo(bx + bw, by + 18); ctx.stroke();
-    text(ctx, '🏁', bx + bw + 22, by, 24, INK, 'center', FONT_UI, 0);
+    for (const m of marks) { ctx.fillStyle = '#d9a93a'; ctx.beginPath(); ctx.arc(bx + bw * m, by, 7, 0, 7); ctx.fill(); }
+    // Finish flag
+    ctx.fillStyle = INK; ctx.fillRect(bx + bw + 6, by - 44, 4, 60);
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) { ctx.fillStyle = (r + c) % 2 ? INK : '#fff'; ctx.fillRect(bx + bw + 10 + c * 8, by - 44 + r * 8, 8, 8); }
     const pr = this.progress();
-    const px = bx + bw * pr * Math.min(1, (this.stateT - 1) * 1.2);
-    this.def.drawProgressIcon ? this.def.drawProgressIcon(ctx, px, by) : circle(ctx, px, by, 14, '#c9762a', 3);
-    text(ctx, `${Math.round(pr * 100)}% there`, W / 2, by + 44, 22, INK, 'center', FONT_UI, 0);
+    const px = bx + bw * pr * Math.min(1, Math.max(0, (this.stateT - 1.2) * 1.4));
+    // Little runner icon (the player's head) travelling the track
+    ctx.save(); ctx.translate(px, by - 34 + Math.abs(Math.sin(this.stateT * 10)) * -4); ctx.scale(0.5, 0.5);
+    const p0 = this.players[0]; if (p0 && p0.drawHead) p0.drawHead(ctx, 0, 30, 'hurt', 0);
     ctx.restore();
-    ctx.globalAlpha = 1;
+    text(ctx, `${Math.round(pr * 100)}% of the way there`, 0, 34, 22, INK, 'center', FONT_UI, 0);
+    ctx.restore();
   }
 }
 

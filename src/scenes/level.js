@@ -8,6 +8,7 @@ import { panel, text, FONT_TITLE, FONT_UI } from '../draw.js';
 import { iris } from '../fx.js';
 import { playMusic, play } from '../audio.js';
 import { nav } from './nav.js';
+import { writeSave } from '../save.js';
 
 export class LevelScene {
   constructor(id, diff) {
@@ -46,13 +47,14 @@ export class LevelScene {
       const res = gradeFor(w);
       res.coins = w.stats.coins;
       res.coinIds = w.coinIds || [];
-      iris.close(() => nav.results(this.id, this.diff, res));
+      if (this.def.noGrade) iris.close(() => { writeSave(); nav.map(); });
+      else iris.close(() => nav.results(this.id, this.diff, res));
     }
   }
   draw(ctx) {
     this.world.draw(ctx);
     const w = this.world;
-    if (w.state === 'lose' && w.stateT > 1.4) this.loseMenu.draw(ctx, W / 2, 470, 32, 46);
+    if (w.state === 'lose' && w.stateT > 1.4) this.loseMenu.draw(ctx, W / 2, 418, 30, 44);
     if (this.paused) {
       ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(0, 0, W, H);
       panel(ctx, W / 2 - 220, 170, 440, 340);

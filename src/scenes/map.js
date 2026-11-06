@@ -28,6 +28,7 @@ export const NODES = [
   { id: 'merlot', x: 850, y: 1020, kind: 'opera', label: 'Merlot Opera House' },
   { id: 'pubcrawl', x: 330, y: 700, kind: 'street', label: 'Pub Crawl' },
   { id: 'shop', x: 580, y: 1170, kind: 'shop', label: "Barley's Back Room" },
+  { id: 'tutorial', x: 560, y: 860, kind: 'practice', label: 'The Practice Bar' },
   { id: 'agave', x: 1500, y: 620, kind: 'arena', label: 'Agave Arena' },
   { id: 'vineyard', x: 1680, y: 930, kind: 'vineyard', label: 'Vineyard Dash' },
   { id: 'barfight', x: 1310, y: 980, kind: 'tavern', label: 'The Bar Fight' },
@@ -35,8 +36,8 @@ export const NODES = [
   { id: 'mix', x: 2340, y: 540, kind: 'lounge', label: 'The Mixologist\'s Lounge' },
 ];
 const NPCS = [
-  { id: 'otis', x: 420, y: 880, name: 'Old Sot Otis', look: 'bottle', color: '#5a7a2a', coin: true,
-    lines: ['Hic! Welcome to the Tipsy Isles, kid.', 'See somethin\' PINK flyin\' at ya? Jump, then press jump AGAIN while touchin\' it. That\'s a parry!', 'Parries fill your drink cards. Spend a card on an EX shot... or save all five for a Super!', 'Here, take this coin. Barley sells good stuff in his Back Room.'] },
+  { id: 'otis', x: 380, y: 900, name: 'Old Sot Otis', look: 'bottle', color: '#5a7a2a', coin: true,
+    lines: ['Hic! Welcome to the Tipsy Isles, kid.', 'New in town? Stop by the Practice Bar next door and learn the ropes first.', 'See somethin\' PINK flyin\' at ya? Jump, then press jump AGAIN while touchin\' it. That\'s a parry!', 'Parries fill your drink cards. Spend a card on an EX shot... or save all five for a Super!', 'Here, take this coin. Barley sells good stuff in his Back Room.'] },
   { id: 'lou', x: 940, y: 800, name: 'Lemon Lou', look: 'lemon', color: '#ffe14a', coin: false,
     lines: ['The bridge keeper won\'t lower that bridge till you show Hops and Merlot who\'s boss.', 'Hold LOCK to stand still and aim in any direction. Real handy!'] },
   { id: 'sally', x: 1430, y: 760, name: 'Sober Sally', look: 'water', color: '#9fd8ff', coin: true,
@@ -232,11 +233,20 @@ export class MapScene {
     for (const b of BRIDGES) this.drawBridge(ctx, b, b.need(G.save));
     // Paths between nodes
     ctx.setLineDash([8, 12]); ctx.strokeStyle = 'rgba(90,60,30,.55)'; ctx.lineWidth = 6;
-    const path = [[330, 1080], [420, 880], [330, 700], [660, 640], [850, 1020], [580, 1170], [330, 1080]];
+    const path = [[330, 1080], [380, 900], [560, 860], [330, 700], [660, 640], [850, 1020], [580, 1170], [330, 1080]];
     ctx.beginPath(); path.forEach(([x, y], i) => (i ? ctx.lineTo(x, y + 40) : ctx.moveTo(x, y + 40))); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(1160, 860); ctx.lineTo(1310, 1020); ctx.lineTo(1500, 660); ctx.lineTo(1680, 970); ctx.lineTo(1800, 790); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(1970, 790); ctx.lineTo(2140, 1030); ctx.lineTo(2340, 580); ctx.stroke();
     ctx.setLineDash([]);
+    // Sailboat bobbing on the sea and sparkles on the water
+    const bx = 1150 + Math.sin(this.t * 0.15) * 220, by = 1330;
+    ctx.save(); ctx.translate(bx, by + Math.sin(this.t * 2) * 4); ctx.rotate(Math.sin(this.t * 1.5) * 0.05);
+    poly(ctx, [[-50, 0], [50, 0], [36, 22], [-36, 22]], '#8a5a2a', 3);
+    ctx.fillStyle = INK; ctx.fillRect(-2, -80, 4, 80);
+    poly(ctx, [[2, -78], [46, -10], [2, -10]], '#f3e6c4', 3);
+    poly(ctx, [[-2, -60], [-34, -10], [-2, -10]], '#d63a2a', 3);
+    ctx.restore();
+    for (let i = 0; i < 14; i++) { const k = (this.t * 0.6 + i * 0.37) % 1; if (k < 0.3) { const sx = (i * 397) % MW, sy = (i * 211) % MH; if (!onIsland(sx, sy)) { ctx.globalAlpha = Math.sin(k / 0.3 * Math.PI); starburst(ctx, sx, sy, 8, 4, '#fff', 0, 0); ctx.globalAlpha = 1; } } }
     // Hidden coins
     for (const c of HIDDEN) if (!G.save.coinsFound['map:' + c.id]) drawCoin(ctx, c.x, c.y + Math.sin(this.t * 4) * 4, this.t);
     // Y-sorted things
@@ -245,6 +255,10 @@ export class MapScene {
     for (const np of NPCS) things.push({ y: np.y, d: () => drawNpc(ctx, np, this.t) });
     for (const p of this.tokens) things.push({ y: p.y, d: () => { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(0.6, 0.6); ctx.translate(-p.x, -p.y); p.draw(ctx); ctx.restore(); } });
     things.sort((a, b) => a.y - b.y).forEach((t) => t.d());
+    // Drifting cloud shadows
+    ctx.save(); ctx.fillStyle = 'rgba(20,30,40,.10)';
+    for (let i = 0; i < 5; i++) { const x = ((this.t * 18 + i * 640) % (MW + 600)) - 300, y = 200 + i * 290; ctx.beginPath(); ctx.ellipse(x, y, 220, 90, 0, 0, 7); ctx.ellipse(x + 160, y + 30, 150, 70, 0, 0, 7); ctx.fill(); }
+    ctx.restore();
     // Prompt bubble
     if (this.near && this.mode === 'walk') {
       const p = this.tokens[0];
@@ -384,6 +398,14 @@ export class MapScene {
       case 'street':
         for (let i = 0; i < 3; i++) { const x = -80 + i * 60; roundRect(ctx, x - 26, -50 - i * 10, 52, 90 + i * 10, 3, ['#7a5a8a', '#5a7a8a', '#8a6a4a'][i], 3); roundRect(ctx, x - 12, -30 - i * 10, 24, 22, 2, '#ffe39a', 2); }
         ctx.fillStyle = INK; ctx.fillRect(84, -80, 6, 120); circle(ctx, 87, -86, 12, '#ffe680', 3);
+        break;
+      case 'practice':
+        roundRect(ctx, -60, -40, 120, 80, 4, '#a07040', 4);
+        poly(ctx, [[-72, -40], [72, -40], [0, -88]], '#5a3218', 4);
+        roundRect(ctx, -16, -6, 32, 46, 3, '#2e1a0c', 3);
+        roundRect(ctx, -70, -128, 140, 32, 6, '#f3e6c4', 3);
+        text(ctx, 'PRACTICE', 0, -112, 18, '#7a1c1c', 'center', FONT_TITLE, 0);
+        if (!s.tutorialDone) text(ctx, '!', 70, -150 + Math.sin(t * 5) * 5, 36, '#ffd84a', 'center', FONT_TITLE, 5);
         break;
       case 'shop':
         roundRect(ctx, -70, -50, 140, 90, 4, '#7a5a30', 4);

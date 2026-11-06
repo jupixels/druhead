@@ -113,24 +113,37 @@ export function mouth(ctx, x, y, w, open = 0, fill = '#7a1c1c') {
 // Paper-cut style panel used by menus.
 export function panel(ctx, x, y, w, h, fill = '#f3e6c4') {
   ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,.45)';
-  ctx.fillRect(x + 10, y + 12, w, h);
-  roundRect(ctx, x, y, w, h, 14, fill, 5);
-  ctx.strokeStyle = 'rgba(27,18,10,.35)'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.roundRect(x + 10, y + 10, w - 20, h - 20, 10); ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,.42)'; ctx.beginPath(); ctx.roundRect(x + 10, y + 12, w, h, 18); ctx.fill();
+  ctx.fillStyle = '#7a4420'; ctx.beginPath(); ctx.roundRect(x - 10, y - 10, w + 20, h + 20, 22); ctx.fill();
+  ctx.lineWidth = 5; ctx.strokeStyle = INK; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,220,160,.25)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(x - 5, y - 5, w + 10, h + 10, 18); ctx.stroke();
+  ctx.fillStyle = fill; ctx.beginPath(); ctx.roundRect(x, y, w, h, 14); ctx.fill();
+  const g = ctx.createRadialGradient(x + w / 2, y + h / 2, Math.min(w, h) * 0.2, x + w / 2, y + h / 2, Math.max(w, h) * 0.7);
+  g.addColorStop(0, 'rgba(255,255,255,.18)'); g.addColorStop(1, 'rgba(120,70,20,.22)');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.stroke();
+  for (const [px, py] of [[x + 6, y + 6], [x + w - 6, y + 6], [x + 6, y + h - 6], [x + w - 6, y + h - 6]]) {
+    ctx.beginPath(); ctx.arc(px, py, 6, 0, 7); ctx.fillStyle = '#d9a93a'; ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+  }
   ctx.restore();
 }
 
 // Drink card for the super meter.
-export function card(ctx, x, y, fill01, active) {
-  const w = 18, h = 26;
-  roundRect(ctx, x, y, w, h, 3, '#3b2a1c', 2);
-  if (fill01 > 0) {
-    const fh = (h - 4) * fill01;
-    ctx.fillStyle = active ? (Math.floor(G.time * 8) % 2 ? '#ffe680' : '#ffcc33') : '#c99a3a';
-    ctx.fillRect(x + 2, y + h - 2 - fh, w - 4, fh);
+export function card(ctx, x, y, fill01, active, flip = 1) {
+  // Playing-card style meter. When full it flips face-up.
+  const w = 20, h = 30;
+  ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(Math.max(0.05, Math.abs(flip)), 1);
+  if (fill01 >= 1 && flip > 0) {
+    const pulse = active ? 1 + Math.sin(G.time * 12) * 0.08 : 1;
+    ctx.scale(pulse, pulse);
+    roundRect(ctx, -w / 2, -h / 2, w, h, 3, active ? '#fff3a0' : '#fffaf0', 2.5);
+    ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 0); ctx.lineTo(0, 8); ctx.lineTo(-6, 0); ctx.closePath(); ctx.fill();
+  } else {
+    roundRect(ctx, -w / 2, -h / 2, w, h, 3, '#5a2a1a', 2.5);
+    if (fill01 > 0) { const fh = (h - 6) * fill01; ctx.fillStyle = '#d9a93a'; ctx.fillRect(-w / 2 + 3, h / 2 - 3 - fh, w - 6, fh); }
+    ctx.strokeStyle = 'rgba(255,220,150,.3)'; ctx.lineWidth = 1; ctx.strokeRect(-w / 2 + 3, -h / 2 + 3, w - 6, h - 6);
   }
-  if (fill01 >= 1) { ctx.fillStyle = '#fff'; ctx.fillRect(x + 4, y + 4, 3, 8); }
+  ctx.restore();
 }
 
 // Soft cartoon shading for a shape already traced as the current path:

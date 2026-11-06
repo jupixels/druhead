@@ -12,8 +12,8 @@ import { nav } from './nav.js';
 export class TitleScene {
   constructor() {
     this.t = 0;
-    this.mode = 'press';
-    this.dancers = [new Player(0, 470, 600, { weapons: ['beer'] }), new Player(1, 810, 600, { weapons: ['beer'] })];
+    this.mode = 'main';
+    this.dancers = [new Player(0, 290, 612, { weapons: ['beer'] }), new Player(1, 990, 612, { weapons: ['beer'] })];
     this.dancers.forEach((d, i) => { d.onGround = true; d.facing = i ? -1 : 1; });
     this.main = new Menu([
       { label: 'Start', action: () => this.openSlots() },
@@ -72,7 +72,7 @@ export class TitleScene {
 
   update(dt) {
     this.t += dt;
-    this.dancers.forEach((d, i) => { d.anim += dt; d.vx = Math.sin(this.t * 2 + i * 3) * 30; d.aimX = d.facing; d.aimY = 0; d.fireCd = Math.sin(this.t * 8) > 0 ? 0 : -1; });
+    this.dancers.forEach((d, i) => { d.anim += dt; d.vx = 0; d.danceT = this.t + i * 0.6; d.aimX = d.facing; d.aimY = 0; d.animate(dt, null); });
     if (iris.busy()) return;
     if (this.mode === 'press') { if (menu.any) { this.mode = 'main'; play('menu_select'); } return; }
     if (this.mode === 'main') this.main.update();
@@ -107,65 +107,104 @@ export class TitleScene {
   }
 
   draw(ctx) {
-    // Stage with curtains
-    ctx.fillStyle = '#2a0d08'; ctx.fillRect(0, 0, W, H);
-    const g = ctx.createRadialGradient(W / 2, 380, 50, W / 2, 380, 560);
-    g.addColorStop(0, '#f6d78a'); g.addColorStop(1, '#5a2a10');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const t = this.t;
+    // Rotating sunburst
+    ctx.fillStyle = '#7a1c0c'; ctx.fillRect(0, 0, W, H);
+    ctx.save(); ctx.translate(W / 2, 330); ctx.rotate(t * 0.08);
+    for (let i = 0; i < 28; i++) { ctx.fillStyle = i % 2 ? '#c8461c' : '#e0682a'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 1100, (i / 28) * 6.283, ((i + 1) / 28) * 6.283); ctx.fill(); }
+    ctx.restore();
+    const glow = ctx.createRadialGradient(W / 2, 330, 40, W / 2, 330, 620);
+    glow.addColorStop(0, 'rgba(255,230,150,.55)'); glow.addColorStop(1, 'rgba(60,10,0,.55)');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+    // Stage floor with footlights
+    ctx.fillStyle = '#5a2e12'; ctx.fillRect(0, 610, W, 110);
+    ctx.fillStyle = '#7a4420'; ctx.fillRect(0, 610, W, 14);
+    ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, 610); ctx.lineTo(W, 610); ctx.stroke();
+    for (let x = 80; x < W; x += 140) { const on = Math.floor(t * 3 + x) % 5 !== 0; ctx.fillStyle = on ? '#ffe680' : '#b08a40'; ctx.beginPath(); ctx.arc(x, 690, 18, Math.PI, 0); ctx.fill(); ctx.lineWidth = 3; ctx.stroke(); }
+    // Curtains (draped, swaying)
     for (const side of [-1, 1]) {
-      for (let i = 0; i < 6; i++) {
-        const x = side < 0 ? i * 34 : W - i * 34;
-        ctx.fillStyle = i % 2 ? '#8a1a14' : '#a8241a';
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.quadraticCurveTo(x + side * -30 + Math.sin(this.t + i) * 4, H / 2, x + side * 20, H); ctx.lineTo(x - side * 40, H); ctx.lineTo(x - side * 40, 0); ctx.fill();
+      for (let i = 0; i < 7; i++) {
+        const base = side < 0 ? i * 30 - 10 : W - i * 30 + 10;
+        ctx.fillStyle = i % 2 ? '#8a1414' : '#a81e1e';
+        const sway = Math.sin(t * 0.8 + i * 0.6) * 6;
+        ctx.beginPath(); ctx.moveTo(base, -10);
+        ctx.quadraticCurveTo(base - side * 50 + sway, 380, base - side * (i < 3 ? 30 : 0) + sway, H + 10);
+        ctx.lineTo(base - side * 60, H + 10); ctx.lineTo(base - side * 60, -10); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2; ctx.stroke();
       }
     }
-    ctx.fillStyle = '#8a1a14'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, 60);
-    for (let x = W; x >= 0; x -= 80) ctx.quadraticCurveTo(x - 40, 110, x - 80, 60);
-    ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.stroke();
-    // Stage floor
-    ctx.fillStyle = '#6b3a1a'; ctx.fillRect(0, 600, W, 120);
-    ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, 600); ctx.lineTo(W, 600); ctx.stroke();
-    // Dancers
-    for (const d of this.dancers) d.draw(ctx);
-
-    // Logo
-    const word = 'DRUNKHEAD';
-    ctx.save(); ctx.translate(W / 2, 175);
-    ctx.font = `128px ${FONT_TITLE}`;
-    const total = ctx.measureText(word).width;
-    let x = -total / 2;
-    for (let i = 0; i < word.length; i++) {
-      const ch = word[i]; const cw = ctx.measureText(ch).width;
-      const y = Math.sin(this.t * 3 + i * 0.6) * 8;
-      ctx.save(); ctx.translate(x + cw / 2, y); ctx.rotate(Math.sin(this.t * 2 + i) * 0.04);
-      text(ctx, ch, 0, 6, 128, '#3b0d06', 'center', FONT_TITLE, 0);
-      text(ctx, ch, 0, 0, 128, i % 2 ? '#ffd86a' : '#ffe9a8', 'center', FONT_TITLE, 10);
-      ctx.restore();
-      x += cw;
-    }
+    ctx.fillStyle = '#a81e1e'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W, 50);
+    for (let x = W; x >= 0; x -= 106) ctx.quadraticCurveTo(x - 53, 120, x - 106, 50);
+    ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.fillStyle = '#d9a93a'; for (let x = 53; x < W; x += 106) { ctx.beginPath(); ctx.arc(x, 92, 8, 0, 7); ctx.fill(); ctx.lineWidth = 2; ctx.stroke(); }
+    // Spotlights on the dancers
+    for (const d of this.dancers) { const g = ctx.createRadialGradient(d.x, 600, 10, d.x, 600, 200); g.addColorStop(0, 'rgba(255,245,200,.45)'); g.addColorStop(1, 'rgba(255,245,200,0)'); ctx.fillStyle = g; ctx.fillRect(d.x - 220, 380, 440, 260); }
+    // Dancers (big)
+    for (const d of this.dancers) { ctx.save(); ctx.translate(d.x, d.y); ctx.scale(1.55, 1.55); ctx.translate(-d.x, -d.y); d.draw(ctx); ctx.restore(); }
+    // Logo on an arc
+    this.drawLogo(ctx, W / 2, 210, t);
+    // Ribbon banner
+    ctx.save(); ctx.translate(W / 2, 300);
+    ctx.fillStyle = '#e8d29a'; ctx.strokeStyle = INK; ctx.lineWidth = 4;
+    for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sd * 230, -18); ctx.lineTo(sd * 290, -22); ctx.lineTo(sd * 270, 0); ctx.lineTo(sd * 290, 22); ctx.lineTo(sd * 230, 18); ctx.closePath(); ctx.fillStyle = '#c9b07a'; ctx.fill(); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(-240, -22); ctx.quadraticCurveTo(0, -34, 240, -22); ctx.lineTo(240, 22); ctx.quadraticCurveTo(0, 10, -240, 22); ctx.closePath(); ctx.fillStyle = '#f3e6c4'; ctx.fill(); ctx.stroke();
+    text(ctx, 'A RUN & GUN SALOON BRAWL', 0, -6, 24, '#7a1c1c', 'center', FONT_TITLE, 0);
     ctx.restore();
-    text(ctx, 'A Run & Gun Saloon Brawl', W / 2, 270, 30, '#fff3d0', 'center', FONT_UI, 6);
 
     if (this.mode === 'press') {
-      if (Math.floor(this.t * 2) % 2) text(ctx, 'PRESS ANY KEY', W / 2, 400, 40, '#fff', 'center', FONT_TITLE, 8);
+      const a = 0.6 + Math.sin(t * 4) * 0.4;
+      ctx.globalAlpha = a; text(ctx, 'PRESS ANY KEY', W / 2, 410, 40, '#fff6d8', 'center', FONT_TITLE, 8); ctx.globalAlpha = 1;
     } else if (this.mode === 'main') {
-      panel(ctx, W / 2 - 170, 320, 340, 210);
-      this.main.draw(ctx, W / 2, 370, 36, 56);
+      this.plaque(ctx, W / 2 - 170, 345, 340, 205);
+      this.main.draw(ctx, W / 2, 392, 34, 54);
     } else if (this.mode === 'slots' || this.mode === 'delete') {
-      panel(ctx, W / 2 - 360, 300, 720, 290);
-      text(ctx, this.mode === 'slots' ? 'Choose a Save Slot' : 'Delete which slot?', W / 2, 340, 30, '#c0392b', 'center', FONT_TITLE, 0);
-      (this.mode === 'slots' ? this.slots : this.delMenu).draw(ctx, W / 2, 395, 26, 46);
+      this.plaque(ctx, W / 2 - 380, 330, 760, 290);
+      text(ctx, this.mode === 'slots' ? 'Choose a Save Slot' : 'Delete which slot?', W / 2, 372, 30, '#7a1c1c', 'center', FONT_TITLE, 0);
+      (this.mode === 'slots' ? this.slots : this.delMenu).draw(ctx, W / 2, 425, 25, 46);
     } else if (this.mode === 'players') {
-      panel(ctx, W / 2 - 300, 320, 600, 230);
-      text(ctx, 'How many drinkers?', W / 2, 360, 32, '#c0392b', 'center', FONT_TITLE, 0);
-      this.players.draw(ctx, W / 2, 420, 30, 52);
-      text(ctx, 'Player 1: left side of keyboard  ·  Player 2: right side', W / 2, 520, 18, INK, 'center', FONT_UI, 0);
+      this.plaque(ctx, W / 2 - 320, 340, 640, 240);
+      text(ctx, 'How many drinkers?', W / 2, 382, 32, '#7a1c1c', 'center', FONT_TITLE, 0);
+      this.players.draw(ctx, W / 2, 440, 30, 52);
+      text(ctx, 'Player 1: left side of the keyboard  ·  Player 2: right side', W / 2, 545, 18, INK, 'center', FONT_UI, 0);
     } else if (this.mode === 'options') {
-      panel(ctx, W / 2 - 330, 300, 660, 380);
-      text(ctx, 'Options', W / 2, 340, 34, '#c0392b', 'center', FONT_TITLE, 0);
-      this.opts.draw(ctx, W / 2, 395, 26, 46);
-      text(ctx, '←/→ to adjust', W / 2, 655, 16, INK, 'center', FONT_UI, 0);
+      this.plaque(ctx, W / 2 - 340, 320, 680, 380);
+      text(ctx, 'Options', W / 2, 360, 34, '#7a1c1c', 'center', FONT_TITLE, 0);
+      this.opts.draw(ctx, W / 2, 412, 26, 46);
+      text(ctx, '←/→ to adjust', W / 2, 678, 16, INK, 'center', FONT_UI, 0);
     } else if (this.mode === 'controls') this.drawControls(ctx);
+    text(ctx, 'v1.0', W - 24, H - 18, 14, 'rgba(255,240,210,.6)', 'right', FONT_UI, 0);
+  }
+
+  drawLogo(ctx, cx, cy, t) {
+    const word = 'DRUNKHEAD';
+    ctx.font = `124px ${FONT_TITLE}`;
+    const widths = [...word].map((c) => ctx.measureText(c).width);
+    const total = widths.reduce((a, b) => a + b, 0);
+    const R = 1400;
+    let acc = -total / 2;
+    for (let i = 0; i < word.length; i++) {
+      const cw = widths[i];
+      const mid = acc + cw / 2; acc += cw;
+      const ang = mid / R;
+      const x = cx + Math.sin(ang) * R, y = cy - Math.cos(ang) * R + R + Math.sin(t * 3 + i * 0.7) * 6;
+      const sq = 1 + Math.sin(t * 6 + i) * 0.03;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(sq, 1 / sq);
+      text(ctx, word[i], 6, 10, 124, '#3b0d06', 'center', FONT_TITLE, 0);
+      text(ctx, word[i], 0, 0, 124, '#fff0c0', 'center', FONT_TITLE, 14);
+      ctx.save(); ctx.beginPath(); ctx.rect(-cw, 0, cw * 2, 80); ctx.clip();
+      text(ctx, word[i], 0, 0, 124, '#ffc84a', 'center', FONT_TITLE, 0);
+      ctx.restore();
+      ctx.restore();
+    }
+  }
+
+  plaque(ctx, x, y, w, h) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.roundRect(x + 10, y + 12, w, h, 18); ctx.fill();
+    ctx.fillStyle = '#7a4420'; ctx.beginPath(); ctx.roundRect(x - 10, y - 10, w + 20, h + 20, 22); ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.fillStyle = '#f3e6c4'; ctx.beginPath(); ctx.roundRect(x, y, w, h, 14); ctx.fill(); ctx.lineWidth = 3; ctx.stroke();
+    for (const [px, py] of [[x + 4, y + 4], [x + w - 4, y + 4], [x + 4, y + h - 4], [x + w - 4, y + h - 4]]) circle(ctx, px, py, 7, '#d9a93a', 2.5);
+    ctx.restore();
   }
 
   drawControls(ctx) {

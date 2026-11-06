@@ -8,6 +8,7 @@ import { iris } from '../fx.js';
 import { play, playMusic } from '../audio.js';
 import { writeSave } from '../save.js';
 import { nav } from './nav.js';
+import { Player } from '../player.js';
 
 export class ResultsScene {
   constructor(id, diff, res) {
@@ -38,33 +39,43 @@ export class ResultsScene {
   draw(ctx) {
     ctx.fillStyle = '#3b2412'; ctx.fillRect(0, 0, W, H);
     for (let i = 0; i < 24; i++) { ctx.fillStyle = i % 2 ? '#4a2e17' : '#3b2412'; ctx.beginPath(); ctx.moveTo(W / 2, H / 2); ctx.arc(W / 2, H / 2, 1200, (i / 24) * 6.283 + G.time * 0.1, ((i + 1) / 24) * 6.283 + G.time * 0.1); ctx.fill(); }
-    panel(ctx, 240, 70, 800, 580);
-    text(ctx, 'THE RESULTS', W / 2, 130, 56, '#c0392b', 'center', FONT_TITLE, 0);
-    text(ctx, `${this.def.name} · ${DIFFS[this.diff]}`, W / 2, 178, 24, INK, 'center', FONT_UI, 0);
+    panel(ctx, 150, 60, 980, 600);
+    text(ctx, 'THE RESULTS', W / 2, 118, 58, '#c0392b', 'center', FONT_TITLE, 0);
+    text(ctx, `${this.def.name} · ${DIFFS[this.diff]}`, W / 2, 166, 24, INK, 'center', FONT_UI, 0);
     const r = this.res;
-    const mm = Math.floor(r.time / 60), ss = Math.floor(r.time % 60).toString().padStart(2, '0');
+    const fmt = (sec) => `${Math.floor(sec / 60)}:${Math.floor(sec % 60).toString().padStart(2, '0')}`;
     const rows = [
-      ['Time', `${mm}:${ss}`, `/ ${Math.floor(r.par / 60)}:${(r.par % 60).toString().padStart(2, '0')}`],
-      ['Hits Taken', `${Math.round(r.hits * 10) / 10}`, ''],
-      ['Parries', `${Math.min(3, r.parries)}`, '/ 3'],
-      ['Super Meter', `${Math.min(6, r.cards)}`, '/ 6'],
-      ['Skill Level', '★'.repeat(this.diff + 1) + '☆'.repeat(2 - this.diff), ''],
+      ['Time', r.time, (v) => fmt(v), ` / ${fmt(r.par)}`],
+      ['Hits Taken', Math.round(r.hits * 10) / 10, (v) => `${Math.round(v * 10) / 10}`, ''],
+      ['Parries', Math.min(3, r.parries), (v) => `${Math.round(v)}`, ' / 3'],
+      ['Super Meter', Math.min(6, r.cards), (v) => `${Math.round(v)}`, ' / 6'],
+      ['Skill Level', null, () => '★'.repeat(this.diff + 1) + '☆'.repeat(2 - this.diff), ''],
     ];
     rows.forEach((row, i) => {
-      if (this.t < 0.4 + i * 0.45) return;
-      const y = 250 + i * 58;
-      text(ctx, row[0], 330, y, 32, INK, 'left', FONT_TITLE, 0);
+      const t0 = 0.4 + i * 0.5;
+      if (this.t < t0) return;
+      const k = Math.min(1, (this.t - t0) / 0.4);
+      if (k < 1 && Math.floor(this.t * 30) !== Math.floor((this.t - 1 / 60) * 30)) play('menu_move', { volume: 0.5, rate: 1.4 });
+      const y = 238 + i * 62;
+      const slide = (1 - Math.min(1, (this.t - t0) * 5)) * -40;
+      ctx.globalAlpha = Math.min(1, (this.t - t0) * 5);
+      text(ctx, row[0], 230 + slide, y, 34, INK, 'left', FONT_TITLE, 0);
       ctx.strokeStyle = 'rgba(27,18,10,.3)'; ctx.setLineDash([4, 8]); ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(560, y + 8); ctx.lineTo(720, y + 8); ctx.stroke(); ctx.setLineDash([]);
-      text(ctx, row[1] + ' ' + row[2], 760, y, 32, '#7a1c1c', 'left', FONT_TITLE, 0);
+      ctx.beginPath(); ctx.moveTo(470, y + 8); ctx.lineTo(560, y + 8); ctx.stroke(); ctx.setLineDash([]);
+      const val = row[1] === null ? row[2]() : row[2](row[1] * k);
+      text(ctx, val + row[3], 580, y, 34, '#7a1c1c', 'left', FONT_TITLE, 0);
+      ctx.globalAlpha = 1;
     });
+    // Victory dancer
+    if (!this.hero) { this.hero = new Player(0, 960, 640, G.save.loadout[0]); this.hero.onGround = true; this.hero.facing = -1; }
+    const h = this.hero; h.anim = this.t; h.victoryT = this.t; h.animate(1 / 60, null);
+    ctx.save(); ctx.translate(h.x, h.y); ctx.scale(1.3, 1.3); ctx.translate(-h.x, -h.y); h.draw(ctx); ctx.restore();
     if (this.t > 3.2) {
       const k = Math.min(1, (this.t - 3.2) * 6);
-      ctx.save(); ctx.translate(900, 290); ctx.rotate(-0.25); ctx.scale(2.4 - k * 1.4, 2.4 - k * 1.4);
-      starburst(ctx, 0, 0, 95, 14, '#ffe39a', 0, 5);
-      text(ctx, r.grade, 0, 4, 92, '#c0392b', 'center', FONT_TITLE, 6);
+      ctx.save(); ctx.translate(960, 230); ctx.rotate(-0.22); ctx.scale(2.6 - k * 1.6, 2.6 - k * 1.6);
+      starburst(ctx, 0, 0, 100, 14, '#ffe39a', G.time * 0.3, 5);
+      text(ctx, r.grade, 0, 4, 96, '#c0392b', 'center', FONT_TITLE, 6);
       ctx.restore();
-      text(ctx, 'GRADE', 900, 410, 28, INK, 'center', FONT_TITLE, 0);
     }
     if (this.t > 3.6) {
       let msg = '';
@@ -72,8 +83,8 @@ export class ResultsScene {
       else if ((this.def.type === 'boss' || this.def.type === 'plane') && this.diff === 0 && !G.save.iou[this.id]) msg = 'Beat it on Regular or Top Shelf to collect the IOU.';
       if (r.coinIds && r.coinIds.length) msg = `Coins found: ${r.coinIds.length}` + (msg ? '  ·  ' + msg : '');
       if (this.bonus) msg = `+${this.bonus} coins for a first win!` + (msg ? '  ·  ' + msg : '');
-      if (msg) text(ctx, msg, W / 2, 560, 22, '#2f5e2c', 'center', FONT_UI, 0);
-      if (Math.floor(G.time * 2) % 2) text(ctx, 'Press JUMP to continue', W / 2, 610, 22, INK, 'center', FONT_UI, 0);
+      if (msg) text(ctx, msg, 560, 570, 22, '#2f5e2c', 'center', FONT_UI, 0);
+      ctx.globalAlpha = 0.55 + Math.sin(G.time * 5) * 0.45; text(ctx, 'Press JUMP to continue', 560, 620, 24, INK, 'center', FONT_TITLE, 0); ctx.globalAlpha = 1;
     }
   }
 }

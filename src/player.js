@@ -48,7 +48,7 @@ export class Player {
     this.slosh = 0;                     // liquid tilt in the glass head
     this.recoil = 0; this.shootT = 0;
     this.runPh = 0; this.airT = 0; this.jumped = false;
-    this.introT = -1; this.victoryT = -1;
+    this.introT = -1; this.victoryT = -1; this.danceT = -1;
     this.blinkT = 2 + Math.random() * 2; this.blink = 0;
   }
 
@@ -268,6 +268,7 @@ export class Player {
       if (this.vy >= 0) play('land', { vary: 0.1, volume: 0.6 });
       w.puff(this.x, this.y - 4, 16, '#efe3c0');
     }
+    if (this.y > 900 && w.invincible) { const s = w.safeSpot(this); this.x = s.x; this.y = s.y; this.vy = 0; w.popText(this.x, this.y - 60, 'OOPS!', '#ffe39a', 26); return; }
     if (this.y > 900) { // fell into a pit
       this.takeHit(w, true);
       if (!this.dead) { const s = w.safeSpot(this); this.x = s.x; this.y = s.y; this.vy = 0; }
@@ -291,7 +292,7 @@ export class Player {
   }
 
   takeHit(w, pit = false) {
-    if (this.dead) return;
+    if (this.dead || w.invincible) return;
     if (!pit && (this.invuln > 0 || (this.dashT > 0 && this.trinket === 'coaster'))) return;
     if (!pit && this.trinket === 'penny' && !this.pennyUsed) {
       this.pennyUsed = true; this.invuln = 1.2; w.popText(this.x, this.y - 120, 'LUCKY!', '#ffd84a', 28); play('coin'); return;
@@ -333,6 +334,7 @@ export class Player {
 
   // ---------------- Drawing ----------------
   pose() {
+    if (this.danceT >= 0) return 'dance';
     if (this.victoryT >= 0) return 'victory';
     if (this.introT >= 0) return 'intro';
     if (this.superT > 0) return 'super';
@@ -408,6 +410,17 @@ export class Player {
         if (k < 0.45) { this.sq = 1 - Math.sin(k / 0.45 * Math.PI) * 0.2; }
         else if (k < 0.95) { hop = -Math.sin((k - 0.45) / 0.5 * Math.PI) * 46; f1y = -14; f2y = -8; armsUp = true; expr = 'happy'; }
         else { expr = 'focus'; bob = Math.sin(t * 3.4) * 1.6; }
+        break;
+      }
+      case 'dance': {
+        // Charleston-style kicks with swinging arms.
+        const k = this.danceT * 5.2;
+        hop = -Math.abs(Math.sin(k)) * 16;
+        const kick = Math.sin(k) > 0;
+        if (kick) { f1x = 22 + Math.sin(k) * 6; f1y = -26 * Math.abs(Math.sin(k)); f2x = -6; }
+        else { f2x = -24 - Math.sin(k) * 6; f2y = -22 * Math.abs(Math.sin(k)); f1x = 6; }
+        lean = Math.sin(k) * 0.12; expr = 'happy'; armsUp = Math.sin(k * 0.5) > 0;
+        if (!armsUp) backHand = [-26 + Math.sin(k) * 10, -40];
         break;
       }
       case 'victory': {

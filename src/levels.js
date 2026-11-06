@@ -8,6 +8,7 @@ import { tabLevel } from './bosses/tab.js';
 import { pubcrawlLevel, vineyardLevel } from './runlevels.js';
 import { barfightLevel } from './barfight.js';
 import { decorate } from './arenafx.js';
+import { tutorialLevel } from './tutorial.js';
 
 export const LEVELS = {
   hops: hopsLevel,
@@ -19,6 +20,7 @@ export const LEVELS = {
   pubcrawl: pubcrawlLevel,
   vineyard: vineyardLevel,
   barfight: barfightLevel,
+  tutorial: tutorialLevel,
 };
 decorate(LEVELS);
 

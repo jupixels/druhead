@@ -6,6 +6,7 @@ import { initAudio, applyVolume } from './audio.js';
 import { loadSettings } from './save.js';
 import { nav } from './scenes/nav.js';
 import { TitleScene, applyCanvasFilter } from './scenes/title.js';
+import { LeaderScene } from './scenes/leader.js';
 import { LevelScene } from './scenes/level.js';
 import { ResultsScene } from './scenes/results.js';
 import { registerExtraScenes } from './scenes/extra.js';
@@ -35,7 +36,8 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyM') { muted = !muted; if (muted) { prevVol = G.settings.volume; G.settings.volume = 0; } else G.settings.volume = prevVol || 0.8; applyVolume(); }
 });
 
-nav.title();
+addEventListener('pointerdown', () => { if (G.scene) G.scene.clicked = true; });
+G.setScene(new LeaderScene());
 
 const STEP = 1 / 60;
 let last = performance.now(), acc = 0;

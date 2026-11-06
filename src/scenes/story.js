@@ -88,7 +88,7 @@ class Book {
       if (menu.back && !this.skipHint) { this.skipHint = true; }
       if (menu.back) { iris.close(() => this.after()); return; }
       if (this.chars < full) { this.chars = full; return; }
-      play('menu_move');
+      play('whoosh', { rate: 1.6, volume: 0.6 });
       this.i++; this.chars = 0; this.turn = 1;
       if (this.i >= this.pages.length) { this.i = this.pages.length - 1; iris.close(() => this.after()); }
     }
